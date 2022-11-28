@@ -3,19 +3,19 @@ using VivoxUnity;
 
 namespace Extreal.Integration.Chat.Vivox
 {
-    public struct VivoxConnectionParameter
+    public struct VivoxChannelConfig
     {
         public string ChannelName { get; }
-        public ChatCapability ChatCapability { get; }
+        public ChatType ChatType { get; }
         public ChannelType ChannelType { get; }
         public Channel3DProperties Properties { get; }
         public bool TransmissionSwitch { get; }
         public byte TokenExpirationDuration { get; }
 
-        public VivoxConnectionParameter
+        public VivoxChannelConfig
         (
             string channelName,
-            ChatCapability chatCapability = default,
+            ChatType chatType = default,
             ChannelType channelType = default,
             bool transmissionSwitch = true,
             byte tokenExpirationDuration = 60
@@ -26,17 +26,17 @@ namespace Extreal.Integration.Chat.Vivox
             {
                 throw new ArgumentNullException(nameof(channelName));
             }
-            if (!Enum.IsDefined(typeof(ChatCapability), chatCapability))
+            if (!Enum.IsDefined(typeof(ChatType), chatType))
             {
-                throw new ArgumentOutOfRangeException(nameof(chatCapability), $"'{chatCapability}' is not defined in {nameof(ChatCapability)}");
+                throw new ArgumentOutOfRangeException(nameof(chatType), $"'{chatType}' is not defined in {nameof(Vivox.ChatType)}");
             }
             if (!Enum.IsDefined(typeof(ChannelType), channelType))
             {
-                throw new ArgumentOutOfRangeException(nameof(channelType), $"'{channelType}' is not defined in {nameof(ChannelType)}");
+                throw new ArgumentOutOfRangeException(nameof(channelType), $"'{channelType}' is not defined in {nameof(VivoxUnity.ChannelType)}");
             }
 
             ChannelName = channelName;
-            ChatCapability = chatCapability;
+            ChatType = chatType;
             ChannelType = channelType;
             Properties = ChannelType is ChannelType.Positional ? new Channel3DProperties() : null;
             TransmissionSwitch = transmissionSwitch;

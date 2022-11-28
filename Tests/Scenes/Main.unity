@@ -132,27 +132,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1241879024}
-  - component: {fileID: 1241879023}
+  - component: {fileID: 1241879025}
   m_Layer: 0
-  m_Name: VivoxConnectionConfigProvider
+  m_Name: VivoxAppConfigProvider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1241879023
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1241879022}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c32f835375684804fa91e74d5b3b1edb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  vivoxConnectionConfig: {fileID: 0}
 --- !u!4 &1241879024
 Transform:
   m_ObjectHideFlags: 0
@@ -168,6 +155,19 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1241879025
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1241879022}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad9e24923fe69ad48b11d8bdbeacec9b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  vivoxAppConfig: {fileID: 0}
 --- !u!1 &1510269007
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,6 +1,6 @@
 namespace Extreal.Integration.Chat.Vivox
 {
-    public enum ChatCapability
+    public enum ChatType
     {
         TextAndAudio,
         TextOnly,

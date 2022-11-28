@@ -3,9 +3,9 @@ using UnityEngine;
 namespace Extreal.Integration.Chat.Vivox
 {
     [CreateAssetMenu(
-        menuName = "Extreal.Integration/Chat/Vivox/" + nameof(VivoxConnectionConfig),
-        fileName = nameof(VivoxConnectionConfig))]
-    public class VivoxConnectionConfig : ScriptableObject
+        menuName = "Extreal.Integration/Chat/Vivox/" + nameof(VivoxAppConfig),
+        fileName = nameof(VivoxAppConfig))]
+    public class VivoxAppConfig : ScriptableObject
     {
 #pragma warning disable CC0052
         [SerializeField] private string apiEndPoint = "https://GETFROMPORTAL.www.vivox.com/api2";

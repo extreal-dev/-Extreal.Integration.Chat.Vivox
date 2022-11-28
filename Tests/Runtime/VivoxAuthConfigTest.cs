@@ -3,11 +3,11 @@ using NUnit.Framework;
 
 namespace Extreal.Integration.Chat.Vivox.Test
 {
-    public class VivoxLoginParameterTest
+    public class VivoxAuthConfigTest
     {
         [Test]
-        public void NewVivoxLoginParameterWithDisplayNameNull()
-            => Assert.That(() => _ = new VivoxLoginParameter(null),
+        public void NewVivoxAuthConfigWithDisplayNameNull()
+            => Assert.That(() => _ = new VivoxAuthConfig(null),
                 Throws.TypeOf<ArgumentNullException>()
                     .With.Message.Contain("displayName"));
     }
