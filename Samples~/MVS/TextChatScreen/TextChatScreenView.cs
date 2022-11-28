@@ -22,6 +22,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
                 .Subscribe(_ =>
                 {
                     onSendButtonClicked.OnNext(inputField.text);
+                    inputField.text = string.Empty;
                 });
 
         private void OnDestroy()

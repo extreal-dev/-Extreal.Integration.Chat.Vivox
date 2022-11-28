@@ -31,7 +31,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.VoiceChatScreen
                 .AddTo(disposables);
 
             voiceChatScreenModel.OnMuted
-                .Subscribe(voiceChatScreenView.ShowMuteIcon)
+                .Subscribe(voiceChatScreenView.SetMutedString)
                 .AddTo(disposables);
         }
 

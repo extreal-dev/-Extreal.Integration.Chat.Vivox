@@ -8,28 +8,20 @@ namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
     public class ChatControlModel : IDisposable
     {
         private readonly VivoxClient vivoxClient;
-        private readonly VivoxConnectionConfig vivoxConnectionConfig;
 
         private readonly CompositeDisposable disposables = new CompositeDisposable();
 
-        public ChatControlModel(VivoxClient vivoxClient, VivoxConnectionConfig vivoxConnectionConfig)
-        {
-            this.vivoxClient = vivoxClient;
-            this.vivoxConnectionConfig = vivoxConnectionConfig;
-        }
+        public ChatControlModel(VivoxClient vivoxClient)
+            => this.vivoxClient = vivoxClient;
 
         public void Initialize()
-        {
-            vivoxClient.InitializeAsync(vivoxConnectionConfig).Forget();
-
-            vivoxClient.OnLoggedIn
+            => vivoxClient.OnLoggedIn
                 .Subscribe(_ =>
                 {
-                    var vivoxConnectionParameter = new VivoxConnectionParameter("GuestChannel");
-                    vivoxClient.Connect(vivoxConnectionParameter);
+                    var vivoxChannelConfig = new VivoxChannelConfig("GuestChannel");
+                    vivoxClient.Connect(vivoxChannelConfig);
                 })
                 .AddTo(disposables);
-        }
 
         public void Dispose()
         {
@@ -41,8 +33,8 @@ namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
         {
             if (AppUtils.IsSpace(stageName))
             {
-                var vivoxLoginParameter = new VivoxLoginParameter("Guest");
-                vivoxClient.Login(vivoxLoginParameter);
+                var vivoxAuthConfig = new VivoxAuthConfig("Guest");
+                vivoxClient.Login(vivoxAuthConfig);
             }
             else
             {

@@ -6,8 +6,8 @@ namespace Extreal.Integration.Chat.Vivox.MVS.VoiceChatScreen
 {
     public class VoiceChatScreenModel : IDisposable
     {
-        public IReadOnlyReactiveProperty<bool> OnMuted => onMuted;
-        private readonly BoolReactiveProperty onMuted = new BoolReactiveProperty(true);
+        public IReadOnlyReactiveProperty<string> OnMuted => onMuted;
+        private readonly ReactiveProperty<string> onMuted = new ReactiveProperty<string>("OFF");
 
         private readonly VivoxClient vivoxClient;
 
@@ -18,7 +18,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.VoiceChatScreen
 
         public void Initialize()
             => vivoxClient.OnLoggedIn
-                .Subscribe(_ => vivoxClient.MuteInputDevice(true))
+                .Subscribe(_ => vivoxClient.Client.AudioInputDevices.Muted = true)
                 .AddTo(disposables);
 
         public void Dispose()
@@ -30,8 +30,8 @@ namespace Extreal.Integration.Chat.Vivox.MVS.VoiceChatScreen
 
         public void ToggleMute()
         {
-            onMuted.Value = !onMuted.Value;
-            vivoxClient.MuteInputDevice(onMuted.Value);
+            vivoxClient.Client.AudioInputDevices.Muted ^= true;
+            onMuted.Value = vivoxClient.Client.AudioInputDevices.Muted ? "OFF" : "ON";
         }
     }
 }

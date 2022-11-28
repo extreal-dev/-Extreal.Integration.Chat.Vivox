@@ -4,6 +4,8 @@
     {
         // Control
         ChatControl = 100,
+        InputSystemControl = 101,
+        CameraControl = 102,
 
         // Screen
         TextChatScreen = 200,
