@@ -10,8 +10,6 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
 
         private bool destroyed;
 
-        private const float Lifetime = 10f;
-
         private void OnDestroy()
             => destroyed = true;
 
@@ -23,18 +21,20 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
 
         private async UniTaskVoid PassMessageAsync()
         {
-            var temp = gameObject;
-            while (temp.GetComponent<Canvas>() == null)
+            var ancestor = transform.parent;
+            while (ancestor.GetComponent<Canvas>() == null)
             {
-                temp = temp.transform.parent.gameObject;
+                ancestor = ancestor.transform.parent;
             }
-            var canvasRectTransform = temp.GetComponent<RectTransform>();
+            var canvasRectTransform = ancestor.GetComponent<RectTransform>();
             var canvasWidth = canvasRectTransform.rect.width;
             var canvasHeight = canvasRectTransform.rect.height;
             var velocity = Random.Range(0.2f, 0.5f) * canvasWidth;
+            var lifetime = (canvasWidth + messageText.preferredWidth) / velocity;
 
             var rectTransform = GetComponent<RectTransform>();
             rectTransform.sizeDelta = new Vector2(messageText.preferredWidth, messageText.preferredHeight);
+            rectTransform.sizeDelta = new Vector2(rectTransform.sizeDelta.x, messageText.preferredHeight);
 
             if ((Random.Range(0, 10) & 1) == 0)
             {
@@ -56,7 +56,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
                 velocity = -velocity;
             }
 
-            for (var t = 0f; t < Lifetime; t += Time.deltaTime)
+            for (var t = 0f; t < lifetime; t += Time.deltaTime)
             {
                 if (destroyed)
                 {

@@ -171,4 +171,4 @@ MonoBehaviour:
     TypeName: Extreal.Integration.Chat.Vivox.MVS.App.AppScope
   autoRun: 1
   autoInjectGameObjects: []
-  vivoxConnectionConfig: {fileID: 0}
+  vivoxAppConfig: {fileID: 0}

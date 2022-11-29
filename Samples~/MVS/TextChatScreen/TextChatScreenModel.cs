@@ -7,8 +7,8 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
 {
     public class TextChatScreenModel : IDisposable
     {
-        public IObservable<string> OnTextMessageReceived => onTextMessageReceived;
-        private readonly Subject<string> onTextMessageReceived = new Subject<string>();
+        public IObservable<string> OnTextMessageReceived
+            => vivoxClient.OnTextMessageReceived.Select(receivedMessage => receivedMessage.ReceivedValue);
 
         private readonly VivoxClient vivoxClient;
 
@@ -20,19 +20,12 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
             => this.vivoxClient = vivoxClient;
 
         public void Initialize()
-        {
-            vivoxClient.OnChannelSessionAdded
+            => vivoxClient.OnChannelSessionAdded
                 .Subscribe(channelId => activeChannelId = channelId)
                 .AddTo(disposables);
 
-            vivoxClient.OnTextMessageReceived
-                .Subscribe(message => onTextMessageReceived.OnNext(message.ReceivedValue))
-                .AddTo(disposables);
-        }
-
         public void Dispose()
         {
-            onTextMessageReceived.Dispose();
             disposables.Dispose();
             GC.SuppressFinalize(this);
         }
