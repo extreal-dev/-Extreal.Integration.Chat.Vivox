@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Cysharp.Threading.Tasks;
@@ -12,13 +11,15 @@ namespace Extreal.Integration.Chat.Vivox
 {
     public class VivoxClient : IDisposable
     {
+#pragma warning disable CC0033
         public IObservable<Unit> OnLoggedIn => onLoggedIn.AddTo(disposables);
         private readonly Subject<Unit> onLoggedIn = new Subject<Unit>();
 
         public IObservable<Unit> OnLoggedOut => onLoggedOut.AddTo(disposables);
         private readonly Subject<Unit> onLoggedOut = new Subject<Unit>();
 
-        public IObservable<ConnectionRecoveryState> OnRecoveryStateChanged => onRecoveryStateChanged.AddTo(disposables);
+        public IObservable<ConnectionRecoveryState> OnRecoveryStateChanged
+            => onRecoveryStateChanged.AddTo(disposables);
         private readonly Subject<ConnectionRecoveryState> onRecoveryStateChanged
             = new Subject<ConnectionRecoveryState>();
 
@@ -34,13 +35,15 @@ namespace Extreal.Integration.Chat.Vivox
         public IObservable<IParticipant> OnUserDisconnected => onUserDisconnected.AddTo(disposables);
         private readonly Subject<IParticipant> onUserDisconnected = new Subject<IParticipant>();
 
-        public IObservable<VivoxReceivedValue<string>> OnTextMessageReceived => onTextMessageReceived.AddTo(disposables);
-        private readonly Subject<VivoxReceivedValue<string>> onTextMessageReceived
-            = new Subject<VivoxReceivedValue<string>>();
+        public IObservable<IChannelTextMessage> OnTextMessageReceived => onTextMessageReceived.AddTo(disposables);
+        private readonly Subject<IChannelTextMessage> onTextMessageReceived
+            = new Subject<IChannelTextMessage>();
 
-        public IObservable<VivoxReceivedValue<double>> OnAudioEnergyChanged => onAudioEnergyChanged.AddTo(disposables);
-        private readonly Subject<VivoxReceivedValue<double>> onAudioEnergyChanged
-            = new Subject<VivoxReceivedValue<double>>();
+        public IObservable<(IParticipant participant, double audioEnergy)> OnAudioEnergyChanged
+            => onAudioEnergyChanged.AddTo(disposables);
+        private readonly Subject<(IParticipant participant, double audioEnergy)> onAudioEnergyChanged
+            = new Subject<(IParticipant participant, double audioEnergy)>();
+#pragma warning restore CC0033
 
         public Client Client { get; private set; }
         public ILoginSession LoginSession { get; private set; }
@@ -48,30 +51,26 @@ namespace Extreal.Integration.Chat.Vivox
         private bool IsLoggingIn => LoginSession?.State == LoginState.LoggingIn;
         private bool IsLoggedIn => LoginSession?.State == LoginState.LoggedIn;
 
-        private IChannelSession positionalChannelSession;
-        private VivoxUnity.IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
+        private IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
             => LoginSession?.ChannelSessions;
 
-        private readonly VivoxAppConfig config;
+        private readonly VivoxAppConfig appConfig;
         private readonly CompositeDisposable disposables = new CompositeDisposable();
 
         private static readonly ELogger Logger = LoggingManager.GetLogger(nameof(VivoxClient));
 
-        public VivoxClient(VivoxAppConfig config)
+        public VivoxClient(VivoxAppConfig appConfig)
         {
-            if (!CheckManualCredentials(config))
-            {
-                throw new ArgumentNullException(nameof(config), $"'{nameof(config)}' or some value in it is null");
-            }
+            CheckManualCredentials(appConfig);
 
             if (Logger.IsDebug())
             {
                 Logger.LogDebug($"Initialize {nameof(VivoxClient)}");
             }
 
-            this.config = config;
+            this.appConfig = appConfig;
 
-            Client = new Client(new Uri(config.ApiEndPoint));
+            Client = new Client(new Uri(appConfig.ApiEndPoint));
             Client.Initialize();
         }
 
@@ -88,26 +87,18 @@ namespace Extreal.Integration.Chat.Vivox
             {
                 foreach (var channelSession in LoginSession.ChannelSessions)
                 {
-                    channelSession.PropertyChanged -= OnChannelPropertyChanged;
-                    channelSession.Participants.AfterKeyAdded -= OnParticipantAdded;
-                    channelSession.Participants.BeforeKeyRemoved -= OnParticipantRemoved;
-                    channelSession.Participants.AfterValueUpdated -= OnParticipantValueUpdated;
-                    channelSession.MessageLog.AfterItemAdded -= OnMessageLogReceived;
+                    RemoveChannelSessionEventHandler(channelSession);
                 }
 
-                LoginSession.PropertyChanged -= OnLoginSessionPropertyChanged;
-                LoginSession.ChannelSessions.AfterKeyAdded -= OnChannelSessionAddedEventHandler;
-                LoginSession.ChannelSessions.BeforeKeyRemoved -= OnChannelSessionRemovedEventHandler;
+                RemoveLoginSessionEventHandler();
                 LoginSession = null;
             }
 
             Client.Cleanup();
-            if (Client != null)
-            {
-                Client.Uninitialize();
-            }
+            Client?.Uninitialize();
 
             GC.SuppressFinalize(this);
+
         }
 
         public void Login(VivoxAuthConfig authConfig)
@@ -116,7 +107,7 @@ namespace Extreal.Integration.Chat.Vivox
             {
                 if (Logger.IsDebug())
                 {
-                    Logger.LogDebug("This computer is not connected to the Internet");
+                    Logger.LogDebug("This device is not connected to the Internet");
                 }
                 return;
             }
@@ -129,30 +120,27 @@ namespace Extreal.Integration.Chat.Vivox
                 return;
             }
 
-            var issuer = config.Issuer;
-            var accountName = authConfig.AccountName;
-            var domain = config.Domain;
-            var displayName = authConfig.DisplayName;
-            var accountId = new AccountId(issuer, accountName, domain, displayName);
-            var tokenSigningKey = config.TokenKey;
-            var tokenExpirationDuration = authConfig.TokenExpirationDuration;
-
+            var accountId = new AccountId
+            (
+                appConfig.Issuer,
+                authConfig.AccountName,
+                appConfig.Domain,
+                authConfig.DisplayName
+            );
             LoginSession = Client.GetLoginSession(accountId);
-            var loginToken = LoginSession.GetLoginToken(tokenSigningKey, TimeSpan.FromSeconds(tokenExpirationDuration));
+            var loginToken = LoginSession.GetLoginToken(appConfig.TokenKey, authConfig.TokenExpirationDuration);
 
-            LoginSession.PropertyChanged += OnLoginSessionPropertyChanged;
-            LoginSession.ChannelSessions.AfterKeyAdded += OnChannelSessionAddedEventHandler;
-            LoginSession.ChannelSessions.BeforeKeyRemoved += OnChannelSessionRemovedEventHandler;
+            AddLoginSessionEventHandler();
             _ = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, LoginSession.EndLogin);
         }
 
         public void Logout()
         {
-            if (!IsLoggingIn && !IsLoggedIn)
+            if (LoginSession == null)
             {
                 if (Logger.IsDebug())
                 {
-                    Logger.LogDebug("This client already logged out of the server");
+                    Logger.LogDebug("This client has never logged into the server before");
                 }
                 return;
             }
@@ -171,35 +159,36 @@ namespace Extreal.Integration.Chat.Vivox
                 return;
             }
 
-            var issuer = config.Issuer;
-            var channelName = channelConfig.ChannelName;
-            var domain = config.Domain;
-            var channelType = channelConfig.ChannelType;
-            var property = channelConfig.Properties;
-            var tokenSigningKey = config.TokenKey;
-            var tokenExpirationDuration = channelConfig.TokenExpirationDuration;
-            var chatCapability = channelConfig.ChatType;
-            var transmissionSwitch = channelConfig.TransmissionSwitch;
+            var channel = new ChannelId
+            (
+                appConfig.Issuer,
+                channelConfig.ChannelName,
+                appConfig.Domain,
+                channelConfig.ChannelType,
+                channelConfig.Properties
+            );
 
-            var channel = new ChannelId(issuer, channelName, domain, channelType, property);
             var channelSession = LoginSession.GetChannelSession(channel);
             if (channelSession.ChannelState != ConnectionState.Disconnected)
             {
                 if (Logger.IsDebug())
                 {
-                    Logger.LogDebug($"This client already connected to the channel '{channelName}'");
+                    Logger.LogDebug($"This client already connected to the channel '{channelConfig.ChannelName}'");
                 }
                 return;
             }
 
-            channelSession.PropertyChanged += OnChannelPropertyChanged;
-            channelSession.Participants.AfterKeyAdded += OnParticipantAdded;
-            channelSession.Participants.BeforeKeyRemoved += OnParticipantRemoved;
-            channelSession.Participants.AfterValueUpdated += OnParticipantValueUpdated;
-            channelSession.MessageLog.AfterItemAdded += OnMessageLogReceived;
+            AddChannelSessionEventHandler(channelSession);
 
-            var connectionToken = channelSession.GetConnectToken(tokenSigningKey, TimeSpan.FromSeconds(tokenExpirationDuration));
-            _ = channelSession.BeginConnect(chatCapability != ChatType.TextOnly, chatCapability != ChatType.AudioOnly, transmissionSwitch, connectionToken, channelSession.EndConnect);
+            var connectionToken = channelSession.GetConnectToken(appConfig.TokenKey, channelConfig.TokenExpirationDuration);
+            _ = channelSession.BeginConnect
+            (
+                channelConfig.ChatType != ChatType.TextOnly,
+                channelConfig.ChatType != ChatType.AudioOnly,
+                channelConfig.TransmissionSwitch,
+                connectionToken,
+                channelSession.EndConnect
+            );
         }
 
         public void Disconnect(ChannelId channelId)
@@ -209,17 +198,7 @@ namespace Extreal.Integration.Chat.Vivox
                 throw new ArgumentNullException(nameof(channelId));
             }
 
-            if (!IsLoggedIn || !ActiveChannelSessions.ContainsKey(channelId))
-            {
-                if (Logger.IsDebug())
-                {
-                    Logger.LogDebug($"This client has not connected to the channel '{channelId.Name}' yet");
-                }
-                return;
-            }
-
-            var channelSession = ActiveChannelSessions[channelId];
-            _ = channelSession.Disconnect();
+            LoginSession.DeleteChannelSession(channelId);
         }
 
         public void DisconnectAllChannels()
@@ -236,11 +215,11 @@ namespace Extreal.Integration.Chat.Vivox
             var activeChannelIds = ActiveChannelSessions.Keys.ToArray();
             foreach (var activeChannelId in activeChannelIds)
             {
-                Disconnect(activeChannelId);
+                LoginSession.DeleteChannelSession(activeChannelId);
             }
         }
 
-        public ChannelId[] SendTextMessage
+        public void SendTextMessage
         (
             string message,
             ChannelId[] channelIds,
@@ -254,19 +233,13 @@ namespace Extreal.Integration.Chat.Vivox
                 throw new ArgumentNullException(nameof(channelIds));
             }
 
-            var failedSentChannelIds = new List<ChannelId>();
             foreach (var channelId in channelIds)
             {
-                if (!SendTextMessage(message, channelId, language, applicationStanzaNamespace, applicationStanzaBody))
-                {
-                    failedSentChannelIds.Add(channelId);
-                }
+                SendTextMessage(message, channelId, language, applicationStanzaNamespace, applicationStanzaBody);
             }
-
-            return failedSentChannelIds.ToArray();
         }
 
-        public bool SendTextMessage
+        public void SendTextMessage
         (
             string message,
             ChannelId channelId,
@@ -290,13 +263,11 @@ namespace Extreal.Integration.Chat.Vivox
                 {
                     Logger.LogDebug($"Unable to send a message before connecting to the channel '{channelId.Name}'");
                 }
-                return false;
+                return;
             }
 
             var channelSession = ActiveChannelSessions[channelId];
             _ = channelSession.BeginSendText(language, message, applicationStanzaNamespace, applicationStanzaBody, channelSession.EndSendText);
-
-            return true;
         }
 
         public void SetTransmissionMode(TransmissionMode mode, ChannelId channelId = default)
@@ -333,31 +304,28 @@ namespace Extreal.Integration.Chat.Vivox
             LoginSession.SetTransmissionMode(mode, channelId);
         }
 
-        public void AdjustInputVolume(int value)
+        public async UniTask<IAudioDevice> GetActiveAudioInputDevicesAsync()
         {
-            if (value is < (-50) or > 50)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), "Enter an integer value between -50 and 50");
-            }
-
-            Client.AudioInputDevices.VolumeAdjustment = value;
+            await RefreshAudioInputDevicesAsync();
+            return Client.AudioInputDevices.ActiveDevice;
         }
 
-        public void AdjustOutputVolume(int value)
+        public async UniTask<IAudioDevice> GetActiveAudioOutputDevicesAsync()
         {
-            if (value is < (-50) or > 50)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), "Enter an integer value between -50 and 50");
-            }
-
-            Client.AudioOutputDevices.VolumeAdjustment = value;
+            await RefreshAudioOutputDevicesAsync();
+            return Client.AudioOutputDevices.ActiveDevice;
         }
 
-        public async UniTask RefreshAudioDevicesAsync()
+        public async UniTask<IReadOnlyDictionary<string, IAudioDevice>> GetAvailableAudioInputDevicesAsync()
         {
-            var inputAsyncResult = Client.AudioInputDevices.BeginRefresh(Client.AudioInputDevices.EndRefresh);
-            var outputAsyncResult = Client.AudioInputDevices.BeginRefresh(Client.AudioInputDevices.EndRefresh);
-            await UniTask.WaitUntil(() => inputAsyncResult.IsCompleted && outputAsyncResult.IsCompleted);
+            await RefreshAudioInputDevicesAsync();
+            return Client.AudioInputDevices.AvailableDevices;
+        }
+
+        public async UniTask<IReadOnlyDictionary<string, IAudioDevice>> GetAvailableAudioOutputDevicesAsync()
+        {
+            await RefreshAudioOutputDevicesAsync();
+            return Client.AudioOutputDevices.AvailableDevices;
         }
 
         public async UniTask SetAudioInputDeviceAsync(IAudioDevice device)
@@ -367,7 +335,7 @@ namespace Extreal.Integration.Chat.Vivox
                 throw new ArgumentNullException(nameof(device));
             }
 
-            await RefreshAudioDevicesAsync();
+            await RefreshAudioInputDevicesAsync();
             if (!Client.AudioInputDevices.AvailableDevices.Contains(device))
             {
                 if (Logger.IsDebug())
@@ -378,7 +346,6 @@ namespace Extreal.Integration.Chat.Vivox
             }
 
             _ = Client.AudioInputDevices.BeginSetActiveDevice(device, Client.AudioInputDevices.EndSetActiveDevice);
-            await RefreshAudioDevicesAsync();
         }
 
         public async UniTask SetAudioOutputDeviceAsync(IAudioDevice device)
@@ -388,7 +355,7 @@ namespace Extreal.Integration.Chat.Vivox
                 throw new ArgumentNullException(nameof(device));
             }
 
-            await RefreshAudioDevicesAsync();
+            await RefreshAudioOutputDevicesAsync();
             if (!Client.AudioOutputDevices.AvailableDevices.Contains(device))
             {
                 if (Logger.IsDebug())
@@ -399,50 +366,40 @@ namespace Extreal.Integration.Chat.Vivox
             }
 
             _ = Client.AudioOutputDevices.BeginSetActiveDevice(device, Client.AudioOutputDevices.EndSetActiveDevice);
-            await RefreshAudioDevicesAsync();
         }
 
-        public void Update3DPosition
-        (
-            Vector3 speakerPosition,
-            Vector3 listenerPosition,
-            Vector3 listenerForwardDirection,
-            Vector3 listenerUpDirection
-        )
+        private async UniTask RefreshAudioInputDevicesAsync()
         {
-            if (positionalChannelSession == null || positionalChannelSession.AudioState != ConnectionState.Connected)
-            {
-                if (Logger.IsDebug())
-                {
-                    Logger.LogDebug("Unable to update 3D position due to unconnected positional channel");
-                }
-                return;
-            }
-
-            positionalChannelSession.Set3DPosition(speakerPosition, listenerPosition, listenerForwardDirection, listenerUpDirection);
+            var inputAsyncResult = Client.AudioInputDevices.BeginRefresh(Client.AudioInputDevices.EndRefresh);
+            await UniTask.WaitUntil(() => inputAsyncResult.IsCompleted);
         }
 
-        private static bool CheckManualCredentials(VivoxAppConfig config)
-            => config != null &&
-                !(string.IsNullOrEmpty(config.ApiEndPoint)
-                    || string.IsNullOrEmpty(config.Domain)
-                    || string.IsNullOrEmpty(config.Issuer)
-                    || string.IsNullOrEmpty(config.TokenKey));
+        private async UniTask RefreshAudioOutputDevicesAsync()
+        {
+            var outputAsyncResult = Client.AudioInputDevices.BeginRefresh(Client.AudioInputDevices.EndRefresh);
+            await UniTask.WaitUntil(() => outputAsyncResult.IsCompleted);
+        }
+
+        private static void CheckManualCredentials(VivoxAppConfig appConfig)
+        {
+            if (appConfig == null
+                    || string.IsNullOrEmpty(appConfig.ApiEndPoint)
+                    || string.IsNullOrEmpty(appConfig.Domain)
+                    || string.IsNullOrEmpty(appConfig.Issuer)
+                    || string.IsNullOrEmpty(appConfig.TokenKey))
+            {
+                throw new ArgumentNullException(nameof(VivoxClient.appConfig), $"'{nameof(VivoxClient.appConfig)}' or some value in it is null");
+            }
+        }
 
         private void OnMessageLogReceived(object sender, QueueItemAddedEventArgs<IChannelTextMessage> textMessage)
         {
-            var channelTextMessage = textMessage.Value;
-            var accountName = channelTextMessage.Sender.Name;
-            var channelName = channelTextMessage.ChannelSession.Channel.Name;
-            var message = channelTextMessage.Message;
-
             if (Logger.IsDebug())
             {
-                Logger.LogDebug("The message is received\n"
-                                + $"accountName: {accountName}, channelName: {channelName}, message: {message}");
+                Logger.LogDebug("The message is received");
             }
 
-            onTextMessageReceived.OnNext(new VivoxReceivedValue<string>(accountName, channelName, message));
+            onTextMessageReceived.OnNext(textMessage.Value);
         }
 
         private void OnChannelSessionAddedEventHandler(object sender, KeyEventArg<ChannelId> keyEventArg)
@@ -453,16 +410,6 @@ namespace Extreal.Integration.Chat.Vivox
             if (Logger.IsDebug())
             {
                 Logger.LogDebug($"ChannelSession with the channel name '{channelName}' was added");
-            }
-
-            if (channelId.Type == ChannelType.Positional)
-            {
-                if (Logger.IsDebug())
-                {
-                    Logger.LogDebug("Positional channel was added");
-                }
-
-                positionalChannelSession = ActiveChannelSessions[channelId];
             }
 
             onChannelSessionAdded.OnNext(channelId);
@@ -478,22 +425,8 @@ namespace Extreal.Integration.Chat.Vivox
                 Logger.LogDebug($"ChannelSession with the channel name '{channelName}' was removed");
             }
 
-            var channelSession = (sender as VivoxUnity.IReadOnlyDictionary<ChannelId, IChannelSession>)[channelId];
-            channelSession.PropertyChanged -= OnChannelPropertyChanged;
-            channelSession.Participants.AfterKeyAdded -= OnParticipantAdded;
-            channelSession.Participants.BeforeKeyRemoved -= OnParticipantRemoved;
-            channelSession.Participants.AfterValueUpdated -= OnParticipantValueUpdated;
-            channelSession.MessageLog.AfterItemAdded -= OnMessageLogReceived;
-
-            if (positionalChannelSession?.Channel == channelId)
-            {
-                if (Logger.IsDebug())
-                {
-                    Logger.LogDebug("Positional channel was removed");
-                }
-
-                positionalChannelSession = null;
-            }
+            var channelSession = (sender as IReadOnlyDictionary<ChannelId, IChannelSession>)[channelId];
+            RemoveChannelSessionEventHandler(channelSession);
 
             onChannelSessionRemoved.OnNext(channelId);
         }
@@ -544,9 +477,7 @@ namespace Extreal.Integration.Chat.Vivox
                     Logger.LogDebug("This client logged out");
                 }
 
-                LoginSession.PropertyChanged -= OnLoginSessionPropertyChanged;
-                LoginSession.ChannelSessions.AfterKeyAdded -= OnChannelSessionAddedEventHandler;
-                LoginSession.ChannelSessions.BeforeKeyRemoved -= OnChannelSessionRemovedEventHandler;
+                RemoveLoginSessionEventHandler();
                 LoginSession = null;
 
                 onLoggedOut.OnNext(Unit.Default);
@@ -555,7 +486,7 @@ namespace Extreal.Integration.Chat.Vivox
 
         private void OnParticipantAdded(object sender, KeyEventArg<string> keyEventArg)
         {
-            var source = sender as VivoxUnity.IReadOnlyDictionary<string, IParticipant>;
+            var source = sender as IReadOnlyDictionary<string, IParticipant>;
             var participant = source[keyEventArg.Key];
             var channelName = participant.ParentChannelSession.Channel.Name;
 
@@ -569,7 +500,7 @@ namespace Extreal.Integration.Chat.Vivox
 
         private void OnParticipantRemoved(object sender, KeyEventArg<string> keyEventArg)
         {
-            var source = sender as VivoxUnity.IReadOnlyDictionary<string, IParticipant>;
+            var source = sender as IReadOnlyDictionary<string, IParticipant>;
             var participant = source[keyEventArg.Key];
             var channelName = participant.ParentChannelSession.Channel.Name;
 
@@ -584,9 +515,6 @@ namespace Extreal.Integration.Chat.Vivox
         private void OnParticipantValueUpdated(object sender, ValueEventArg<string, IParticipant> valueEventArg)
         {
             var participant = valueEventArg.Value;
-
-            var accountName = participant.Account.Name;
-            var channelName = participant.ParentChannelSession.Key.Name;
             var property = valueEventArg.PropertyName;
 
             if (property == "AudioEnergy")
@@ -594,11 +522,10 @@ namespace Extreal.Integration.Chat.Vivox
                 var audioEnergy = valueEventArg.Value.AudioEnergy;
                 if (Logger.IsDebug())
                 {
-                    Logger.LogDebug("AudioEnergy was changed\n"
-                                    + $"accountName: {accountName}, channelName: {channelName}, audioEnergy: {audioEnergy}");
+                    Logger.LogDebug("AudioEnergy was changed");
                 }
 
-                onAudioEnergyChanged.OnNext(new VivoxReceivedValue<double>(accountName, channelName, audioEnergy));
+                onAudioEnergyChanged.OnNext((participant, audioEnergy));
             }
         }
 
@@ -616,12 +543,11 @@ namespace Extreal.Integration.Chat.Vivox
 
                 foreach (var participant in channelSession.Participants)
                 {
-                    var accountName = participant.Account.Name;
-                    onAudioEnergyChanged.OnNext(new VivoxReceivedValue<double>(accountName, channelName, 0));
+                    onAudioEnergyChanged.OnNext((participant, 0));
                 }
             }
 
-            if ((propertyChangedEventArgs.PropertyName is "AudioState" or "TextState")
+            if (propertyChangedEventArgs.PropertyName is "AudioState" or "TextState"
                 && channelSession.AudioState == ConnectionState.Disconnected
                 && channelSession.TextState == ConnectionState.Disconnected)
             {
@@ -630,8 +556,43 @@ namespace Extreal.Integration.Chat.Vivox
                     Logger.LogDebug($"The audio and text disconnected from channel '{channelSession.Channel.Name}'");
                 }
 
-                LoginSession.DeleteChannelSession(channelSession.Channel);
+                if (LoginSession.RecoveryState == ConnectionRecoveryState.FailedToRecover)
+                {
+                    LoginSession.DeleteChannelSession(channelSession.Channel);
+                }
             }
+        }
+
+        private void AddChannelSessionEventHandler(IChannelSession channelSession)
+        {
+            channelSession.PropertyChanged += OnChannelPropertyChanged;
+            channelSession.Participants.AfterKeyAdded += OnParticipantAdded;
+            channelSession.Participants.BeforeKeyRemoved += OnParticipantRemoved;
+            channelSession.Participants.AfterValueUpdated += OnParticipantValueUpdated;
+            channelSession.MessageLog.AfterItemAdded += OnMessageLogReceived;
+        }
+
+        private void RemoveChannelSessionEventHandler(IChannelSession channelSession)
+        {
+            channelSession.PropertyChanged -= OnChannelPropertyChanged;
+            channelSession.Participants.AfterKeyAdded -= OnParticipantAdded;
+            channelSession.Participants.BeforeKeyRemoved -= OnParticipantRemoved;
+            channelSession.Participants.AfterValueUpdated -= OnParticipantValueUpdated;
+            channelSession.MessageLog.AfterItemAdded -= OnMessageLogReceived;
+        }
+
+        private void AddLoginSessionEventHandler()
+        {
+            LoginSession.PropertyChanged += OnLoginSessionPropertyChanged;
+            LoginSession.ChannelSessions.AfterKeyAdded += OnChannelSessionAddedEventHandler;
+            LoginSession.ChannelSessions.BeforeKeyRemoved += OnChannelSessionRemovedEventHandler;
+        }
+
+        private void RemoveLoginSessionEventHandler()
+        {
+            LoginSession.PropertyChanged -= OnLoginSessionPropertyChanged;
+            LoginSession.ChannelSessions.AfterKeyAdded -= OnChannelSessionAddedEventHandler;
+            LoginSession.ChannelSessions.BeforeKeyRemoved -= OnChannelSessionRemovedEventHandler;
         }
     }
 }

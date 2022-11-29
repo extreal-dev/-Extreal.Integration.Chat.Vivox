@@ -7,12 +7,10 @@ namespace Extreal.Integration.Chat.Vivox
         fileName = nameof(VivoxAppConfig))]
     public class VivoxAppConfig : ScriptableObject
     {
-#pragma warning disable CC0052
-        [SerializeField] private string apiEndPoint = "https://GETFROMPORTAL.www.vivox.com/api2";
-        [SerializeField] private string domain = "GET VALUE FROM VIVOX DEVELOPER PORTAL";
-        [SerializeField] private string issuer = "GET VALUE FROM VIVOX DEVELOPER PORTAL";
-        [SerializeField] private string tokenKey = "GET VALUE FROM VIVOX DEVELOPER PORTAL";
-#pragma warning restore CC0052
+        [SerializeField] private string apiEndPoint;
+        [SerializeField] private string domain;
+        [SerializeField] private string issuer;
+        [SerializeField] private string tokenKey;
 
         public string ApiEndPoint => apiEndPoint;
         public string Domain => domain;

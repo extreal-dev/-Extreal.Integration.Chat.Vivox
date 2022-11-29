@@ -33,9 +33,9 @@ namespace Extreal.Integration.Chat.Vivox.Test
         private IParticipant disconnectedUser;
 
         private bool onTextMessageReceived;
-        private VivoxReceivedValue<string> receivedMessage;
+        private IChannelTextMessage receivedMessage;
         private bool onAudioEnergyChanged;
-        private VivoxReceivedValue<double> changedAudioEnergy;
+        private (IParticipant participant, double audioEnergy) changedAudioEnergy;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeCracker", "CC0033")]
         private readonly CompositeDisposable disposables = new CompositeDisposable();
@@ -162,7 +162,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         public void NewVivoxClientWithConfigNull()
             => Assert.That(() => _ = new VivoxClient(null),
                 Throws.TypeOf<ArgumentNullException>()
-                    .With.Message.Contain("'config' or some value in it is null"));
+                    .With.Message.Contain("'appConfig' or some value in it is null"));
 
         [UnityTest]
         public IEnumerator LoginSuccess() => UniTask.ToCoroutine(async () =>
@@ -200,7 +200,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
             client.Login(authConfig);
-            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This computer is not connected to the Internet");
+            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This device is not connected to the Internet");
 
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
             await UniTask.Delay(TimeSpan.FromSeconds(10));
@@ -234,7 +234,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         public void LogoutWithoutLogin()
         {
             client.Logout();
-            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client already logged out of the server");
+            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client has never logged into the server before");
         }
 
         [UnityTest]
@@ -310,27 +310,6 @@ namespace Extreal.Integration.Chat.Vivox.Test
                 Throws.TypeOf<ArgumentNullException>()
                     .With.Message.Contain("channelId"));
 
-        [Test]
-        public void DisconnectWithoutLogin()
-        {
-            const string channelName = "TestChannel";
-            client.Disconnect(new ChannelId("Issuer", channelName, "domain"));
-            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client has not connected to the channel '{channelName}' yet");
-        }
-
-        [UnityTest]
-        public IEnumerator DisconnectWithoutConnect() => UniTask.ToCoroutine(async () =>
-        {
-            const string displayName = "TestUser";
-            var authConfig = new VivoxAuthConfig(displayName);
-            client.Login(authConfig);
-            await UniTask.WaitUntil(() => onLoggedIn);
-
-            const string channelName = "TestChannel";
-            client.Disconnect(new ChannelId("Issuer", channelName, "domain"));
-            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client has not connected to the channel '{channelName}' yet");
-        });
-
         [UnityTest]
         public IEnumerator DisconnectAllChannelsSuccess() => UniTask.ToCoroutine(async () =>
         {
@@ -384,44 +363,26 @@ namespace Extreal.Integration.Chat.Vivox.Test
             client.Connect(channelConfig);
             await UniTask.WaitUntil(() => onUserConnected);
 
+            var addedChannelSession = client.LoginSession.GetChannelSession(addedChannelId);
+            await UniTask.WaitUntil(() => addedChannelSession.TextState == ConnectionState.Connected);
+
             const string message = "This is a test message";
-            var failedSentChannelIds = client.SendTextMessage(message, new ChannelId[] { addedChannelId });
-            Assert.IsEmpty(failedSentChannelIds);
+            client.SendTextMessage(message, new ChannelId[] { addedChannelId });
             await UniTask.WaitUntil(() => onTextMessageReceived);
-            Assert.AreEqual(authConfig.AccountName, receivedMessage.AccountName);
-            Assert.AreEqual(channelName, receivedMessage.ChannelName);
-            Assert.AreEqual(message, receivedMessage.ReceivedValue);
-        });
-
-        [UnityTest]
-        public IEnumerator SendMessageFailed() => UniTask.ToCoroutine(async () =>
-        {
-            const string displayName = "TestUser";
-            var authConfig = new VivoxAuthConfig(displayName);
-            client.Login(authConfig);
-            await UniTask.WaitUntil(() => onLoggedIn);
-
-            const string channelName = "TestChannel";
-            var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
-
-            var invalidChannelId = new ChannelId("issuer", "TestChannel", "domain");
-            const string message = "This is a test message";
-            var failedSentChannelIds = client.SendTextMessage(message, new ChannelId[] { invalidChannelId });
-            Assert.IsNotEmpty(failedSentChannelIds);
-            Assert.AreEqual(invalidChannelId, failedSentChannelIds[0]);
+            Assert.AreEqual(authConfig.AccountName, receivedMessage.Sender.Name);
+            Assert.AreEqual(channelName, receivedMessage.ChannelSession.Channel.Name);
+            Assert.AreEqual(message, receivedMessage.Message);
         });
 
         [Test]
         public void SendMessageWithMessageNull()
-            => Assert.That(() => _ = client.SendTextMessage(null, new ChannelId("issuer", "TestUser", "domain")),
+            => Assert.That(() => client.SendTextMessage(null, new ChannelId("issuer", "TestUser", "domain")),
                 Throws.TypeOf<ArgumentNullException>()
                     .With.Message.Contain("message"));
 
         [Test]
         public void SendMessageWithAccountIdNull()
-            => Assert.That(() => _ = client.SendTextMessage("This is a test message", null as ChannelId),
+            => Assert.That(() => client.SendTextMessage("This is a test message", null as ChannelId),
                 Throws.TypeOf<ArgumentNullException>()
                     .With.Message.Contain("channelId"));
 
@@ -436,8 +397,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string channelName = "TestChannel";
             const string message = "This is a test message";
-            var result = client.SendTextMessage(message, new ChannelId("issuer", channelName, "domain"));
-            Assert.IsFalse(result);
+            client.SendTextMessage(message, new ChannelId("issuer", channelName, "domain"));
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] Unable to send a message before connecting to the channel '{channelName}'");
         }
 
@@ -451,8 +411,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             const string channelName = "TestChannel";
             const string message = "This is a test message";
-            var result = client.SendTextMessage(message, new ChannelId("issuer", channelName, "domain"));
-            Assert.IsFalse(result);
+            client.SendTextMessage(message, new ChannelId("issuer", channelName, "domain"));
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] Unable to send a message before connecting to the channel '{channelName}'");
         });
 
@@ -524,41 +483,15 @@ namespace Extreal.Integration.Chat.Vivox.Test
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] Unable to set transmission mode to 'Single' before connecting to the channel '{channelName}'");
         });
 
-        [Test]
-        public void AdjustInputVolumeSuccess()
-            => client.AdjustInputVolume(0);
-
-        [Test]
-        public void AdjustInputVolumeWithOutOfRangeValue()
-            => Assert.That(() => client.AdjustInputVolume(100),
-                Throws.TypeOf<ArgumentOutOfRangeException>()
-                    .With.Message.Contain("Enter an integer value between -50 and 50"));
-
-        [Test]
-        public void AdjustOutputVolumeSuccess()
-            => client.AdjustOutputVolume(0);
-
-        [Test]
-        public void AdjustOutputVolumeWithOutOfRangeValue()
-            => Assert.That(() => client.AdjustOutputVolume(100),
-                Throws.TypeOf<ArgumentOutOfRangeException>()
-                    .With.Message.Contain("Enter an integer value between -50 and 50"));
-
-        [UnityTest]
-        public IEnumerator RefreshAudioDevicesSuccess() => UniTask.ToCoroutine(async () =>
-            await client.RefreshAudioDevicesAsync()
-        );
-
         [UnityTest]
         public IEnumerator SetAudioInputDeviceSuccess() => UniTask.ToCoroutine(async () =>
         {
-            await client.RefreshAudioDevicesAsync();
-            var preActiveInputDevice = client.Client.AudioInputDevices.ActiveDevice;
-            var targetInputDevice = client.Client.AudioInputDevices.AvailableDevices.First(device => device != preActiveInputDevice);
+            var preActiveInputDevice = await client.GetActiveAudioInputDevicesAsync();
+            var targetInputDevice = (await client.GetAvailableAudioInputDevicesAsync()).First(device => device != preActiveInputDevice);
             Assert.AreNotEqual(preActiveInputDevice, targetInputDevice);
 
             await client.SetAudioInputDeviceAsync(targetInputDevice);
-            Assert.AreEqual(targetInputDevice, client.Client.AudioInputDevices.ActiveDevice);
+            Assert.AreEqual(targetInputDevice, await client.GetActiveAudioInputDevicesAsync());
         });
 
         [UnityTest]
@@ -581,8 +514,9 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator SetAudioInputDeviceWithInvalidDevice() => UniTask.ToCoroutine(async () =>
         {
-            await client.RefreshAudioDevicesAsync();
-            var invalidDevice = client.Client.AudioOutputDevices.AvailableDevices.Except(client.Client.AudioInputDevices.AvailableDevices).First();
+            var availableInputDevices = await client.GetAvailableAudioInputDevicesAsync();
+            var availableOutputDevices = await client.GetAvailableAudioOutputDevicesAsync();
+            var invalidDevice = availableOutputDevices.Except(availableInputDevices).First();
             await client.SetAudioInputDeviceAsync(invalidDevice);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] The input device of the name '{invalidDevice.Name}' is not available");
         });
@@ -590,13 +524,12 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator SetAudioOutputDeviceSuccess() => UniTask.ToCoroutine(async () =>
         {
-            await client.RefreshAudioDevicesAsync();
-            var preActiveOutputDevice = client.Client.AudioOutputDevices.ActiveDevice;
-            var targetOutputDevice = client.Client.AudioOutputDevices.AvailableDevices.First(device => device != preActiveOutputDevice);
+            var preActiveOutputDevice = await client.GetActiveAudioOutputDevicesAsync();
+            var targetOutputDevice = (await client.GetAvailableAudioOutputDevicesAsync()).First(device => device != preActiveOutputDevice);
             Assert.AreNotEqual(preActiveOutputDevice, targetOutputDevice);
 
             await client.SetAudioOutputDeviceAsync(targetOutputDevice);
-            Assert.AreEqual(targetOutputDevice, client.Client.AudioOutputDevices.ActiveDevice);
+            Assert.AreEqual(targetOutputDevice, await client.GetActiveAudioOutputDevicesAsync());
         });
 
         [UnityTest]
@@ -619,38 +552,11 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator SetAudioOutputDeviceWithInvalidDevice() => UniTask.ToCoroutine(async () =>
         {
-            await client.RefreshAudioDevicesAsync();
-            var invalidDevice = client.Client.AudioInputDevices.AvailableDevices.Except(client.Client.AudioOutputDevices.AvailableDevices).First();
+            var availableInputDevices = await client.GetAvailableAudioInputDevicesAsync();
+            var availableOutputDevices = await client.GetAvailableAudioOutputDevicesAsync();
+            var invalidDevice = availableInputDevices.Except(availableOutputDevices).First();
             await client.SetAudioOutputDeviceAsync(invalidDevice);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] The output device of the name '{invalidDevice.Name}' is not available");
-        });
-
-        [UnityTest]
-        public IEnumerator Update3DPositionSuccess() => UniTask.ToCoroutine(async () =>
-        {
-            const string displayName = "TestUser";
-            var authConfig = new VivoxAuthConfig(displayName);
-            client.Login(authConfig);
-            await UniTask.WaitUntil(() => onLoggedIn);
-
-            const string channelName = "TestChannel";
-            var channelConfig = new VivoxChannelConfig(channelName, channelType: ChannelType.Positional);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected && connectedUser.ParentChannelSession.AudioState == ConnectionState.Connected);
-
-            client.Update3DPosition(Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero);
-        });
-
-        [UnityTest]
-        public IEnumerator Update3DPositionWithoutConnectToPositionalChannel() => UniTask.ToCoroutine(async () =>
-        {
-            const string displayName = "TestUser";
-            var authConfig = new VivoxAuthConfig(displayName);
-            client.Login(authConfig);
-            await UniTask.WaitUntil(() => onLoggedIn);
-
-            client.Update3DPosition(Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero);
-            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] Unable to update 3D position due to unconnected positional channel");
         });
 
         [UnityTest]
@@ -667,7 +573,29 @@ namespace Extreal.Integration.Chat.Vivox.Test
             await UniTask.WaitUntil(() => onUserConnected);
 
             await UniTask.WaitUntil(() => onAudioEnergyChanged);
-            Assert.AreNotEqual(0, changedAudioEnergy.ReceivedValue);
+            Assert.AreNotEqual(0, changedAudioEnergy.audioEnergy);
+        });
+
+        [UnityTest]
+        public IEnumerator UnexpectedDisconnect() => UniTask.ToCoroutine(async () =>
+        {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            client.Login(authConfig);
+            await UniTask.WaitUntil(() => onLoggedIn);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            client.Connect(channelConfig);
+            await UniTask.WaitUntil(() => onUserConnected);
+
+            await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
+
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.Recovering);
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+
+            await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
+            await UniTask.Delay(TimeSpan.FromSeconds(10));
         });
     }
 }

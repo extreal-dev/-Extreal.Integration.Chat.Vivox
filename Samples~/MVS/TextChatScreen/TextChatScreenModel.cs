@@ -8,7 +8,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
     public class TextChatScreenModel : IDisposable
     {
         public IObservable<string> OnTextMessageReceived
-            => vivoxClient.OnTextMessageReceived.Select(receivedMessage => receivedMessage.ReceivedValue);
+            => vivoxClient.OnTextMessageReceived.Select(receivedMessage => receivedMessage.Message);
 
         private readonly VivoxClient vivoxClient;
 

@@ -8,6 +8,7 @@
 1. Run `Extreal.Integration.Chat.Vivox.Test.dll`.
 1. Make a sound when stopping at `AudioEnergyChanged` in `VivoxClientTest`.
 1. Disable the Network Connection when stopping at `LoginWithoutInternetConnection` in `VivoxClientTest`, then enable it.
+1. Disable the Network Connection when stopping at `UnexpectedDisconnect` in `VivoxClientTest`, then enable it after 30 seconds or more.
 1. All tests are completed.
 
 ## How to play the sample

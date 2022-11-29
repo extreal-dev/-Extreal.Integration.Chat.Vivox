@@ -6,9 +6,9 @@ namespace Extreal.Integration.Chat.Vivox
     {
         public string DisplayName { get; }
         public string AccountName { get; }
-        public byte TokenExpirationDuration { get; }
+        public TimeSpan TokenExpirationDuration { get; }
 
-        public VivoxAuthConfig(string displayName, string accountName = default, byte tokenExpirationDuration = 60)
+        public VivoxAuthConfig(string displayName, string accountName = default, TimeSpan tokenExpirationDuration = default)
         {
             if (string.IsNullOrEmpty(displayName))
             {
@@ -17,7 +17,8 @@ namespace Extreal.Integration.Chat.Vivox
 
             DisplayName = displayName;
             AccountName = string.IsNullOrEmpty(accountName) ? Guid.NewGuid().ToString() : accountName;
-            TokenExpirationDuration = tokenExpirationDuration;
+            TokenExpirationDuration
+                = tokenExpirationDuration == default ? TimeSpan.FromSeconds(60) : tokenExpirationDuration;
         }
     }
 }
