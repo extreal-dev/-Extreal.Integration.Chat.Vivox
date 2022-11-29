@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Extreal.Integration.Chat.Vivox
 {
     [CreateAssetMenu(
-        menuName = "Extreal.Integration/Chat/Vivox/" + nameof(VivoxAppConfig),
+        menuName = "Extreal/Integration.Chat.Vivox/" + nameof(VivoxAppConfig),
         fileName = nameof(VivoxAppConfig))]
     public class VivoxAppConfig : ScriptableObject
     {
