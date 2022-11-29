@@ -2,13 +2,13 @@ namespace Extreal.Integration.Chat.Vivox
 {
     public struct VivoxReceivedValue<T>
     {
-        public string UserId { get; }
+        public string AccountName { get; }
         public string ChannelName { get; }
         public T ReceivedValue { get; }
 
-        public VivoxReceivedValue(string userId, string channelName, T receivedValue)
+        public VivoxReceivedValue(string accountName, string channelName, T receivedValue)
         {
-            UserId = userId;
+            AccountName = accountName;
             ChannelName = channelName;
             ReceivedValue = receivedValue;
         }
