@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Cysharp.Threading.Tasks;
@@ -48,7 +49,7 @@ namespace Extreal.Integration.Chat.Vivox
         private bool IsLoggedIn => LoginSession?.State == LoginState.LoggedIn;
 
         private IChannelSession positionalChannelSession;
-        private IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
+        private VivoxUnity.IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
             => LoginSession?.ChannelSessions;
 
         private readonly VivoxAppConfig config;
@@ -239,7 +240,7 @@ namespace Extreal.Integration.Chat.Vivox
             }
         }
 
-        public void SendTextMessage
+        public ChannelId[] SendTextMessage
         (
             string message,
             ChannelId[] channelIds,
@@ -253,10 +254,16 @@ namespace Extreal.Integration.Chat.Vivox
                 throw new ArgumentNullException(nameof(channelIds));
             }
 
+            var failedSentChannelIds = new List<ChannelId>();
             foreach (var channelId in channelIds)
             {
-                _ = SendTextMessage(message, channelId, language, applicationStanzaNamespace, applicationStanzaBody);
+                if (!SendTextMessage(message, channelId, language, applicationStanzaNamespace, applicationStanzaBody))
+                {
+                    failedSentChannelIds.Add(channelId);
+                }
             }
+
+            return failedSentChannelIds.ToArray();
         }
 
         public bool SendTextMessage
@@ -471,7 +478,7 @@ namespace Extreal.Integration.Chat.Vivox
                 Logger.LogDebug($"ChannelSession with the channel name '{channelName}' was removed");
             }
 
-            var channelSession = (sender as IReadOnlyDictionary<ChannelId, IChannelSession>)[channelId];
+            var channelSession = (sender as VivoxUnity.IReadOnlyDictionary<ChannelId, IChannelSession>)[channelId];
             channelSession.PropertyChanged -= OnChannelPropertyChanged;
             channelSession.Participants.AfterKeyAdded -= OnParticipantAdded;
             channelSession.Participants.BeforeKeyRemoved -= OnParticipantRemoved;
@@ -548,7 +555,7 @@ namespace Extreal.Integration.Chat.Vivox
 
         private void OnParticipantAdded(object sender, KeyEventArg<string> keyEventArg)
         {
-            var source = sender as IReadOnlyDictionary<string, IParticipant>;
+            var source = sender as VivoxUnity.IReadOnlyDictionary<string, IParticipant>;
             var participant = source[keyEventArg.Key];
             var channelName = participant.ParentChannelSession.Channel.Name;
 
@@ -562,7 +569,7 @@ namespace Extreal.Integration.Chat.Vivox
 
         private void OnParticipantRemoved(object sender, KeyEventArg<string> keyEventArg)
         {
-            var source = sender as IReadOnlyDictionary<string, IParticipant>;
+            var source = sender as VivoxUnity.IReadOnlyDictionary<string, IParticipant>;
             var participant = source[keyEventArg.Key];
             var channelName = participant.ParentChannelSession.Channel.Name;
 

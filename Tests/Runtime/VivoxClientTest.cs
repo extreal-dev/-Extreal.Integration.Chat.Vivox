@@ -385,11 +385,32 @@ namespace Extreal.Integration.Chat.Vivox.Test
             await UniTask.WaitUntil(() => onUserConnected);
 
             const string message = "This is a test message";
-            client.SendTextMessage(message, new ChannelId[] { addedChannelId });
+            var failedSentChannelIds = client.SendTextMessage(message, new ChannelId[] { addedChannelId });
+            Assert.IsEmpty(failedSentChannelIds);
             await UniTask.WaitUntil(() => onTextMessageReceived);
-            Assert.AreEqual(authConfig.AccountName, receivedMessage.UserId);
+            Assert.AreEqual(authConfig.AccountName, receivedMessage.AccountName);
             Assert.AreEqual(channelName, receivedMessage.ChannelName);
             Assert.AreEqual(message, receivedMessage.ReceivedValue);
+        });
+
+        [UnityTest]
+        public IEnumerator SendMessageFailed() => UniTask.ToCoroutine(async () =>
+        {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            client.Login(authConfig);
+            await UniTask.WaitUntil(() => onLoggedIn);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            client.Connect(channelConfig);
+            await UniTask.WaitUntil(() => onUserConnected);
+
+            var invalidChannelId = new ChannelId("issuer", "TestChannel", "domain");
+            const string message = "This is a test message";
+            var failedSentChannelIds = client.SendTextMessage(message, new ChannelId[] { invalidChannelId });
+            Assert.IsNotEmpty(failedSentChannelIds);
+            Assert.AreEqual(invalidChannelId, failedSentChannelIds[0]);
         });
 
         [Test]
