@@ -376,7 +376,7 @@ namespace Extreal.Integration.Chat.Vivox
 
         private async UniTask RefreshAudioOutputDevicesAsync()
         {
-            var outputAsyncResult = Client.AudioInputDevices.BeginRefresh(Client.AudioInputDevices.EndRefresh);
+            var outputAsyncResult = Client.AudioOutputDevices.BeginRefresh(Client.AudioOutputDevices.EndRefresh);
             await UniTask.WaitUntil(() => outputAsyncResult.IsCompleted);
         }
 
