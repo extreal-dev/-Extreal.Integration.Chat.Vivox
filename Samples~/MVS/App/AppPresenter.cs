@@ -5,9 +5,9 @@ namespace Extreal.Integration.Chat.Vivox.MVS.App
 {
     public class AppPresenter : IStartable
     {
-        private readonly IStageNavigator<StageName> stageNavigator;
+        private readonly StageNavigator<StageName, SceneName> stageNavigator;
 
-        public AppPresenter(IStageNavigator<StageName> stageNavigator)
+        public AppPresenter(StageNavigator<StageName, SceneName> stageNavigator)
             => this.stageNavigator = stageNavigator;
 
         public void Start()

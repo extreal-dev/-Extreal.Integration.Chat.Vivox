@@ -1,18 +1,21 @@
 using System;
 using Extreal.Core.StageNavigation;
 using Extreal.Integration.Chat.Vivox.MVS.App;
+using UniRx;
 using VContainer.Unity;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
 {
     public class ChatControlPresenter : IInitializable, IDisposable
     {
-        private readonly IStageNavigator<StageName> stageNavigator;
+        private readonly StageNavigator<StageName, SceneName> stageNavigator;
         private readonly ChatControlModel chatControlModel;
+
+        private readonly CompositeDisposable disposables = new CompositeDisposable();
 
         public ChatControlPresenter
         (
-            IStageNavigator<StageName> stageNavigator,
+            StageNavigator<StageName, SceneName> stageNavigator,
             ChatControlModel chatControlModel
         )
         {
@@ -23,12 +26,14 @@ namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
         public void Initialize()
         {
             chatControlModel.Initialize();
-            stageNavigator.OnStageTransitioned += chatControlModel.OnStageTransitioned;
+            stageNavigator.OnStageTransitioned
+                .Subscribe(chatControlModel.OnStageTransitioned)
+                .AddTo(disposables);
         }
 
         public void Dispose()
         {
-            stageNavigator.OnStageTransitioned -= chatControlModel.OnStageTransitioned;
+            disposables.Dispose();
             GC.SuppressFinalize(this);
         }
     }
