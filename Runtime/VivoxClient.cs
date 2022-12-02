@@ -260,6 +260,7 @@ namespace Extreal.Integration.Chat.Vivox
         /// Disconnects from the channel.
         /// </summary>
         /// <param name="channelId">ID of the channel to be disconnected.</param>
+        /// <exception cref="ArgumentNullException">If 'channelId' is null.</exception>
         public void Disconnect(ChannelId channelId)
         {
             if (ChannelId.IsNullOrEmpty(channelId))
