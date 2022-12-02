@@ -5,8 +5,7 @@
         "Extreal.Core.Logging",
         "VivoxUnity",
         "UniTask",
-        "UniRx",
-        "Extreal.Framework.Analyzer"
+        "UniRx"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
