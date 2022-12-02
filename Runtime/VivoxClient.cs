@@ -128,7 +128,7 @@ namespace Extreal.Integration.Chat.Vivox
                 authConfig.DisplayName
             );
             LoginSession = Client.GetLoginSession(accountId);
-            var loginToken = LoginSession.GetLoginToken(appConfig.TokenKey, authConfig.TokenExpirationDuration);
+            var loginToken = LoginSession.GetLoginToken(appConfig.SecretKey, authConfig.TokenExpirationDuration);
 
             AddLoginSessionEventHandler();
             _ = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, LoginSession.EndLogin);
@@ -180,7 +180,7 @@ namespace Extreal.Integration.Chat.Vivox
 
             AddChannelSessionEventHandler(channelSession);
 
-            var connectionToken = channelSession.GetConnectToken(appConfig.TokenKey, channelConfig.TokenExpirationDuration);
+            var connectionToken = channelSession.GetConnectToken(appConfig.SecretKey, channelConfig.TokenExpirationDuration);
             _ = channelSession.BeginConnect
             (
                 channelConfig.ChatType != ChatType.TextOnly,
@@ -304,13 +304,13 @@ namespace Extreal.Integration.Chat.Vivox
             LoginSession.SetTransmissionMode(mode, channelId);
         }
 
-        public async UniTask<IAudioDevice> GetActiveAudioInputDevicesAsync()
+        public async UniTask<IAudioDevice> GetActiveAudioInputDeviceAsync()
         {
             await RefreshAudioInputDevicesAsync();
             return Client.AudioInputDevices.ActiveDevice;
         }
 
-        public async UniTask<IAudioDevice> GetActiveAudioOutputDevicesAsync()
+        public async UniTask<IAudioDevice> GetActiveAudioOutputDeviceAsync()
         {
             await RefreshAudioOutputDevicesAsync();
             return Client.AudioOutputDevices.ActiveDevice;
@@ -386,9 +386,9 @@ namespace Extreal.Integration.Chat.Vivox
                     || string.IsNullOrEmpty(appConfig.ApiEndPoint)
                     || string.IsNullOrEmpty(appConfig.Domain)
                     || string.IsNullOrEmpty(appConfig.Issuer)
-                    || string.IsNullOrEmpty(appConfig.TokenKey))
+                    || string.IsNullOrEmpty(appConfig.SecretKey))
             {
-                throw new ArgumentNullException(nameof(VivoxClient.appConfig), $"'{nameof(VivoxClient.appConfig)}' or some value in it is null");
+                throw new ArgumentNullException(nameof(appConfig), $"'{nameof(appConfig)}' or some value in it is null");
             }
         }
 

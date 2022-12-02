@@ -486,12 +486,12 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator SetAudioInputDeviceSuccess() => UniTask.ToCoroutine(async () =>
         {
-            var preActiveInputDevice = await client.GetActiveAudioInputDevicesAsync();
+            var preActiveInputDevice = await client.GetActiveAudioInputDeviceAsync();
             var targetInputDevice = (await client.GetAvailableAudioInputDevicesAsync()).First(device => device != preActiveInputDevice);
             Assert.AreNotEqual(preActiveInputDevice, targetInputDevice);
 
             await client.SetAudioInputDeviceAsync(targetInputDevice);
-            Assert.AreEqual(targetInputDevice, await client.GetActiveAudioInputDevicesAsync());
+            Assert.AreEqual(targetInputDevice, await client.GetActiveAudioInputDeviceAsync());
         });
 
         [UnityTest]
@@ -524,12 +524,12 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator SetAudioOutputDeviceSuccess() => UniTask.ToCoroutine(async () =>
         {
-            var preActiveOutputDevice = await client.GetActiveAudioOutputDevicesAsync();
+            var preActiveOutputDevice = await client.GetActiveAudioOutputDeviceAsync();
             var targetOutputDevice = (await client.GetAvailableAudioOutputDevicesAsync()).First(device => device != preActiveOutputDevice);
             Assert.AreNotEqual(preActiveOutputDevice, targetOutputDevice);
 
             await client.SetAudioOutputDeviceAsync(targetOutputDevice);
-            Assert.AreEqual(targetOutputDevice, await client.GetActiveAudioOutputDevicesAsync());
+            Assert.AreEqual(targetOutputDevice, await client.GetActiveAudioOutputDeviceAsync());
         });
 
         [UnityTest]

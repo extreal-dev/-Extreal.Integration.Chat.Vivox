@@ -10,11 +10,11 @@ namespace Extreal.Integration.Chat.Vivox
         [SerializeField] private string apiEndPoint;
         [SerializeField] private string domain;
         [SerializeField] private string issuer;
-        [SerializeField] private string tokenKey;
+        [SerializeField] private string secretKey;
 
         public string ApiEndPoint => apiEndPoint;
         public string Domain => domain;
         public string Issuer => issuer;
-        public string TokenKey => tokenKey;
+        public string SecretKey => secretKey;
     }
 }
