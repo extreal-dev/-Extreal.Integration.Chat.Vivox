@@ -1,0 +1,29 @@
+{
+    "name": "Extreal.Integration.Chat.Vivox.MVS",
+    "rootNamespace": "Extreal.Integration.Chat.Vivox.MVS",
+    "references": [
+        "Extreal.Integration.Chat.Vivox",
+        "Extreal.Core.Logging",
+        "VivoxUnity",
+        "UniTask",
+        "UniRx",
+        "VContainer",
+        "Unity.Collections",
+        "Extreal.Core.StageNavigation",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Android",
+        "Editor",
+        "iOS",
+        "WindowsStandalone64"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

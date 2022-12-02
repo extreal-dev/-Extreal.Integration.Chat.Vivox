@@ -1,0 +1,21 @@
+{
+  "name": "jp.co.tis.extreal.integration.chat.vivox",
+  "version": "0.1.0",
+  "displayName": "Extreal.Integration.Chat.Vivox",
+  "unity": "2021.3",
+  "author": {
+    "name": "TIS Inc."
+  },
+  "dependencies": {
+    "jp.co.tis.extreal.core.logging": "0.1.0",
+    "com.unity.services.vivox": "15.1.190000-pre.1",
+    "com.cysharp.unitask": "2.3.1",
+    "com.neuecc.unirx": "7.1.0"
+  },
+  "samples": [
+    {
+      "displayName": "MVS",
+      "path": "Samples~/MVS"
+    }
+  ]
+}

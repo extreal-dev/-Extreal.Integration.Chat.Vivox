@@ -1,0 +1,26 @@
+{
+    "name": "Extreal.Integration.Chat.Vivox.Test",
+    "rootNamespace": "Extreal.Integration.Chat.Vivox.Test",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Extreal.Integration.Chat.Vivox",
+        "Extreal.Core.Logging",
+        "VivoxUnity",
+        "UniTask",
+        "UniRx"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

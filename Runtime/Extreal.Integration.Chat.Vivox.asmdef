@@ -1,0 +1,19 @@
+{
+    "name": "Extreal.Integration.Chat.Vivox",
+    "rootNamespace": "Extreal.Integration.Chat.Vivox",
+    "references": [
+        "Extreal.Core.Logging",
+        "VivoxUnity",
+        "UniTask",
+        "UniRx"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
