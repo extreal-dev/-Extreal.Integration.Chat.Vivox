@@ -402,52 +402,32 @@ namespace Extreal.Integration.Chat.Vivox
         }
 
         /// <summary>
-        /// Gets the active audio input device.
+        /// Gets the audio input devices.
         /// </summary>
-        /// <returns>Active audio input device.</returns>
-        public async UniTask<IAudioDevice> GetActiveAudioInputDeviceAsync()
+        /// <returns>Audio input devices.</returns>
+        public async UniTask<IAudioDevices> GetAudioInputDevicesAsync()
         {
             await RefreshAudioInputDevicesAsync();
-            return Client.AudioInputDevices.ActiveDevice;
+            return Client.AudioInputDevices;
         }
 
         /// <summary>
-        /// Gets the active audio output device.
+        /// Gets the audio output devices.
         /// </summary>
-        /// <returns>Active audio output device.</returns>
-        public async UniTask<IAudioDevice> GetActiveAudioOutputDeviceAsync()
+        /// <returns>Audio output devices.</returns>
+        public async UniTask<IAudioDevices> GetAudioOutputDevicesAsync()
         {
             await RefreshAudioOutputDevicesAsync();
-            return Client.AudioOutputDevices.ActiveDevice;
+            return Client.AudioOutputDevices;
         }
 
         /// <summary>
-        /// Gets the available audio input devices.
+        /// Sets the active audio input device.
         /// </summary>
-        /// <returns>Available audio input devices.</returns>
-        public async UniTask<IReadOnlyDictionary<string, IAudioDevice>> GetAvailableAudioInputDevicesAsync()
-        {
-            await RefreshAudioInputDevicesAsync();
-            return Client.AudioInputDevices.AvailableDevices;
-        }
-
-        /// <summary>
-        /// Gets the available audio output devices.
-        /// </summary>
-        /// <returns>Available audio output devices.</returns>
-        public async UniTask<IReadOnlyDictionary<string, IAudioDevice>> GetAvailableAudioOutputDevicesAsync()
-        {
-            await RefreshAudioOutputDevicesAsync();
-            return Client.AudioOutputDevices.AvailableDevices;
-        }
-
-        /// <summary>
-        /// Sets the audio input device.
-        /// </summary>
-        /// <param name="device">Audio input device to be set.</param>
+        /// <param name="device">Audio input device to be set as the active device.</param>
         /// <exception cref="ArgumentNullException">If 'device' is null.</exception>
         /// <returns>UniTask of this method.</returns>
-        public async UniTask SetAudioInputDeviceAsync(IAudioDevice device)
+        public async UniTask SetActiveAudioInputDeviceAsync(IAudioDevice device)
         {
             if (device == null)
             {
@@ -468,12 +448,12 @@ namespace Extreal.Integration.Chat.Vivox
         }
 
         /// <summary>
-        /// Sets the audio output device.
+        /// Sets the active audio output device.
         /// </summary>
-        /// <param name="device">Audio output device to be set.</param>
+        /// <param name="device">Audio output device to be set as the active device.</param>
         /// <exception cref="ArgumentNullException">If 'device' is null.</exception>
         /// <returns>UniTask of this method.</returns>
-        public async UniTask SetAudioOutputDeviceAsync(IAudioDevice device)
+        public async UniTask SetActiveAudioOutputDeviceAsync(IAudioDevice device)
         {
             if (device == null)
             {

@@ -486,12 +486,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator SetAudioInputDeviceSuccess() => UniTask.ToCoroutine(async () =>
         {
-            var preActiveInputDevice = await client.GetActiveAudioInputDeviceAsync();
-            var targetInputDevice = (await client.GetAvailableAudioInputDevicesAsync()).First(device => device != preActiveInputDevice);
+            var preActiveInputDevice = (await client.GetAudioInputDevicesAsync()).ActiveDevice;
+            var targetInputDevice = (await client.GetAudioInputDevicesAsync()).AvailableDevices
+                                        .First(device => device != preActiveInputDevice);
             Assert.AreNotEqual(preActiveInputDevice, targetInputDevice);
 
-            await client.SetAudioInputDeviceAsync(targetInputDevice);
-            Assert.AreEqual(targetInputDevice, await client.GetActiveAudioInputDeviceAsync());
+            await client.SetActiveAudioInputDeviceAsync(targetInputDevice);
+            Assert.AreEqual(targetInputDevice, (await client.GetAudioInputDevicesAsync()).ActiveDevice);
         });
 
         [UnityTest]
@@ -500,7 +501,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Exception exception = null;
             try
             {
-                await client.SetAudioInputDeviceAsync(null);
+                await client.SetActiveAudioInputDeviceAsync(null);
             }
             catch (Exception e)
             {
@@ -514,22 +515,23 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator SetAudioInputDeviceWithInvalidDevice() => UniTask.ToCoroutine(async () =>
         {
-            var availableInputDevices = await client.GetAvailableAudioInputDevicesAsync();
-            var availableOutputDevices = await client.GetAvailableAudioOutputDevicesAsync();
+            var availableInputDevices = (await client.GetAudioInputDevicesAsync()).AvailableDevices;
+            var availableOutputDevices = (await client.GetAudioOutputDevicesAsync()).AvailableDevices;
             var invalidDevice = availableOutputDevices.Except(availableInputDevices).First();
-            await client.SetAudioInputDeviceAsync(invalidDevice);
+            await client.SetActiveAudioInputDeviceAsync(invalidDevice);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] The input device of the name '{invalidDevice.Name}' is not available");
         });
 
         [UnityTest]
         public IEnumerator SetAudioOutputDeviceSuccess() => UniTask.ToCoroutine(async () =>
         {
-            var preActiveOutputDevice = await client.GetActiveAudioOutputDeviceAsync();
-            var targetOutputDevice = (await client.GetAvailableAudioOutputDevicesAsync()).First(device => device != preActiveOutputDevice);
+            var preActiveOutputDevice = (await client.GetAudioOutputDevicesAsync()).ActiveDevice;
+            var targetOutputDevice = (await client.GetAudioOutputDevicesAsync()).AvailableDevices
+                                        .First(device => device != preActiveOutputDevice);
             Assert.AreNotEqual(preActiveOutputDevice, targetOutputDevice);
 
-            await client.SetAudioOutputDeviceAsync(targetOutputDevice);
-            Assert.AreEqual(targetOutputDevice, await client.GetActiveAudioOutputDeviceAsync());
+            await client.SetActiveAudioOutputDeviceAsync(targetOutputDevice);
+            Assert.AreEqual(targetOutputDevice, (await client.GetAudioOutputDevicesAsync()).ActiveDevice);
         });
 
         [UnityTest]
@@ -538,7 +540,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Exception exception = null;
             try
             {
-                await client.SetAudioOutputDeviceAsync(null);
+                await client.SetActiveAudioOutputDeviceAsync(null);
             }
             catch (Exception e)
             {
@@ -552,10 +554,10 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator SetAudioOutputDeviceWithInvalidDevice() => UniTask.ToCoroutine(async () =>
         {
-            var availableInputDevices = await client.GetAvailableAudioInputDevicesAsync();
-            var availableOutputDevices = await client.GetAvailableAudioOutputDevicesAsync();
+            var availableInputDevices = (await client.GetAudioInputDevicesAsync()).AvailableDevices;
+            var availableOutputDevices = (await client.GetAudioOutputDevicesAsync()).AvailableDevices;
             var invalidDevice = availableInputDevices.Except(availableOutputDevices).First();
-            await client.SetAudioOutputDeviceAsync(invalidDevice);
+            await client.SetActiveAudioOutputDeviceAsync(invalidDevice);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] The output device of the name '{invalidDevice.Name}' is not available");
         });
 
