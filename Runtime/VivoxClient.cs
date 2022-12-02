@@ -9,43 +9,89 @@ using VivoxUnity;
 
 namespace Extreal.Integration.Chat.Vivox
 {
+    /// <summary>
+    /// Class that handles a client for Vivox.
+    /// </summary>
     public class VivoxClient : IDisposable
     {
 #pragma warning disable CC0033
+        /// <summary>
+        /// Invokes immediately after logging into the server.
+        /// </summary>
         public IObservable<Unit> OnLoggedIn => onLoggedIn.AddTo(disposables);
         private readonly Subject<Unit> onLoggedIn = new Subject<Unit>();
 
+        /// <summary>
+        /// Invokes immediately after logging out of the server.
+        /// </summary>
         public IObservable<Unit> OnLoggedOut => onLoggedOut.AddTo(disposables);
         private readonly Subject<Unit> onLoggedOut = new Subject<Unit>();
 
+        /// <summary>
+        /// <para>Invokes immediately after the recovery state is changed.</para>
+        /// Arg: Changed recovery state
+        /// </summary>
         public IObservable<ConnectionRecoveryState> OnRecoveryStateChanged
             => onRecoveryStateChanged.AddTo(disposables);
         private readonly Subject<ConnectionRecoveryState> onRecoveryStateChanged
             = new Subject<ConnectionRecoveryState>();
 
+        /// <summary>
+        /// <para>Invokes immediately after the channel session is added.</para>
+        /// Arg: ID of the added channel
+        /// </summary>
         public IObservable<ChannelId> OnChannelSessionAdded => onChannelSessionAdded.AddTo(disposables);
         private readonly Subject<ChannelId> onChannelSessionAdded = new Subject<ChannelId>();
 
+        /// <summary>
+        /// <para>Invokes immediately after the channel session is removed.</para>
+        /// Arg: ID of the removed channel
+        /// </summary>
         public IObservable<ChannelId> OnChannelSessionRemoved => onChannelSessionRemoved.AddTo(disposables);
         private readonly Subject<ChannelId> onChannelSessionRemoved = new Subject<ChannelId>();
 
+        /// <summary>
+        /// <para>Invokes immediately after a user connects to the channel session.</para>
+        /// Arg: Information of the connected user
+        /// </summary>
         public IObservable<IParticipant> OnUserConnected => onUserConnected.AddTo(disposables);
         private readonly Subject<IParticipant> onUserConnected = new Subject<IParticipant>();
 
+        /// <summary>
+        /// <para>Invokes immediately after a user disconnects from the channel session.</para>
+        /// Arg: Information of the disconnected user
+        /// </summary>
         public IObservable<IParticipant> OnUserDisconnected => onUserDisconnected.AddTo(disposables);
         private readonly Subject<IParticipant> onUserDisconnected = new Subject<IParticipant>();
 
+        /// <summary>
+        /// <para>Invokes immediately after a text message is received.</para>
+        /// Arg: Received text message and information of the sender
+        /// </summary>
         public IObservable<IChannelTextMessage> OnTextMessageReceived => onTextMessageReceived.AddTo(disposables);
         private readonly Subject<IChannelTextMessage> onTextMessageReceived
             = new Subject<IChannelTextMessage>();
 
+        /// <summary>
+        /// <para>Invokes immediately after the audio energy of any user is changed.</para>
+        /// Arg: Changed audio energy and information of the user
+        /// </summary>
         public IObservable<(IParticipant participant, double audioEnergy)> OnAudioEnergyChanged
             => onAudioEnergyChanged.AddTo(disposables);
         private readonly Subject<(IParticipant participant, double audioEnergy)> onAudioEnergyChanged
             = new Subject<(IParticipant participant, double audioEnergy)>();
 #pragma warning restore CC0033
 
+        /// <summary>
+        /// Created client for Vivox.
+        /// </summary>
+        /// <value>Created client for Vivox.</value>
         public Client Client { get; private set; }
+
+        /// <summary>
+        /// Created login session for this client.
+        /// </summary>
+        /// <value>Created login session for this client.</value>
         public ILoginSession LoginSession { get; private set; }
 
         private bool IsLoggingIn => LoginSession?.State == LoginState.LoggingIn;
@@ -59,6 +105,11 @@ namespace Extreal.Integration.Chat.Vivox
 
         private static readonly ELogger Logger = LoggingManager.GetLogger(nameof(VivoxClient));
 
+        /// <summary>
+        /// Creates a new VivoxClient with given appConfig.
+        /// </summary>
+        /// <param name="appConfig">Application config to create a client.</param>
+        /// <exception cref="ArgumentNullException">If 'appConfig' or some value in it is null</exception>
         public VivoxClient(VivoxAppConfig appConfig)
         {
             CheckManualCredentials(appConfig);
@@ -74,6 +125,9 @@ namespace Extreal.Integration.Chat.Vivox
             Client.Initialize();
         }
 
+        /// <summary>
+        /// Disposes VivoxClient
+        /// </summary>
         public void Dispose()
         {
             if (Logger.IsDebug())
@@ -101,6 +155,10 @@ namespace Extreal.Integration.Chat.Vivox
 
         }
 
+        /// <summary>
+        /// Logs into the server.
+        /// </summary>
+        /// <param name="authConfig">Authentication config for login.</param>
         public void Login(VivoxAuthConfig authConfig)
         {
             if (Application.internetReachability == NetworkReachability.NotReachable)
@@ -134,6 +192,9 @@ namespace Extreal.Integration.Chat.Vivox
             _ = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, LoginSession.EndLogin);
         }
 
+        /// <summary>
+        /// Logs out of the server.
+        /// </summary>
         public void Logout()
         {
             if (LoginSession == null)
@@ -148,6 +209,10 @@ namespace Extreal.Integration.Chat.Vivox
             LoginSession.Logout();
         }
 
+        /// <summary>
+        /// Connects to the channel.
+        /// </summary>
+        /// <param name="channelConfig">Channel config for connection.</param>
         public void Connect(VivoxChannelConfig channelConfig)
         {
             if (!IsLoggedIn)
@@ -191,6 +256,10 @@ namespace Extreal.Integration.Chat.Vivox
             );
         }
 
+        /// <summary>
+        /// Disconnects from the channel.
+        /// </summary>
+        /// <param name="channelId">ID of the channel to be disconnected.</param>
         public void Disconnect(ChannelId channelId)
         {
             if (ChannelId.IsNullOrEmpty(channelId))
@@ -201,6 +270,9 @@ namespace Extreal.Integration.Chat.Vivox
             LoginSession.DeleteChannelSession(channelId);
         }
 
+        /// <summary>
+        /// Disconnects from all channels.
+        /// </summary>
         public void DisconnectAllChannels()
         {
             if (!IsLoggedIn || ActiveChannelSessions.Count == 0)
@@ -219,6 +291,15 @@ namespace Extreal.Integration.Chat.Vivox
             }
         }
 
+        /// <summary>
+        /// Sends a text message to the several channels.
+        /// </summary>
+        /// <param name="message">Message to be sent.</param>
+        /// <param name="channelIds">IDs of the channels to which the message is sent.</param>
+        /// <param name="language">Language of the message.</param>
+        /// <param name="applicationStanzaNamespace">Optional namespace element for additional application data.</param>
+        /// <param name="applicationStanzaBody">Additional application data body.</param>
+        /// <exception cref="ArgumentNullException">If 'message', 'channelIds' or some channel ID in 'channelIds' is null.</exception>
         public void SendTextMessage
         (
             string message,
@@ -239,6 +320,15 @@ namespace Extreal.Integration.Chat.Vivox
             }
         }
 
+        /// <summary>
+        /// Sends a text message to the channel.
+        /// </summary>
+        /// <param name="message">Message to be sent.</param>
+        /// <param name="channelId">ID of the channel to which the message is sent.</param>
+        /// <param name="language">Language of the message.</param>
+        /// <param name="applicationStanzaNamespace">Optional namespace element for additional application data.</param>
+        /// <param name="applicationStanzaBody">Additional application data body.</param>
+        /// <exception cref="ArgumentNullException">If 'message' or 'channelId' is null.</exception>
         public void SendTextMessage
         (
             string message,
@@ -270,6 +360,12 @@ namespace Extreal.Integration.Chat.Vivox
             _ = channelSession.BeginSendText(language, message, applicationStanzaNamespace, applicationStanzaBody, channelSession.EndSendText);
         }
 
+        /// <summary>
+        /// Sets the transmission mode.
+        /// </summary>
+        /// <param name="mode">Transmission mode to be set.</param>
+        /// <param name="channelId">ID of the channel to be transmitted when 'mode' is 'Single'.</param>
+        /// <exception cref="ArgumentNullException">If 'channelId' is null when 'mode' is 'Single'.</exception>
         public void SetTransmissionMode(TransmissionMode mode, ChannelId channelId = default)
         {
             if (!IsLoggedIn)
@@ -304,30 +400,52 @@ namespace Extreal.Integration.Chat.Vivox
             LoginSession.SetTransmissionMode(mode, channelId);
         }
 
+        /// <summary>
+        /// Gets the active audio input device.
+        /// </summary>
+        /// <returns>Active audio input device.</returns>
         public async UniTask<IAudioDevice> GetActiveAudioInputDeviceAsync()
         {
             await RefreshAudioInputDevicesAsync();
             return Client.AudioInputDevices.ActiveDevice;
         }
 
+        /// <summary>
+        /// Gets the active audio output device.
+        /// </summary>
+        /// <returns>Active audio output device.</returns>
         public async UniTask<IAudioDevice> GetActiveAudioOutputDeviceAsync()
         {
             await RefreshAudioOutputDevicesAsync();
             return Client.AudioOutputDevices.ActiveDevice;
         }
 
+        /// <summary>
+        /// Gets the available audio input devices.
+        /// </summary>
+        /// <returns>Available audio input devices.</returns>
         public async UniTask<IReadOnlyDictionary<string, IAudioDevice>> GetAvailableAudioInputDevicesAsync()
         {
             await RefreshAudioInputDevicesAsync();
             return Client.AudioInputDevices.AvailableDevices;
         }
 
+        /// <summary>
+        /// Gets the available audio output devices.
+        /// </summary>
+        /// <returns>Available audio output devices.</returns>
         public async UniTask<IReadOnlyDictionary<string, IAudioDevice>> GetAvailableAudioOutputDevicesAsync()
         {
             await RefreshAudioOutputDevicesAsync();
             return Client.AudioOutputDevices.AvailableDevices;
         }
 
+        /// <summary>
+        /// Sets the audio input device.
+        /// </summary>
+        /// <param name="device">Audio input device to be set.</param>
+        /// <exception cref="ArgumentNullException">If 'device' is null.</exception>
+        /// <returns>UniTask of this method.</returns>
         public async UniTask SetAudioInputDeviceAsync(IAudioDevice device)
         {
             if (device == null)
@@ -348,6 +466,12 @@ namespace Extreal.Integration.Chat.Vivox
             _ = Client.AudioInputDevices.BeginSetActiveDevice(device, Client.AudioInputDevices.EndSetActiveDevice);
         }
 
+        /// <summary>
+        /// Sets the audio output device.
+        /// </summary>
+        /// <param name="device">Audio output device to be set.</param>
+        /// <exception cref="ArgumentNullException">If 'device' is null.</exception>
+        /// <returns>UniTask of this method.</returns>
         public async UniTask SetAudioOutputDeviceAsync(IAudioDevice device)
         {
             if (device == null)

@@ -3,15 +3,56 @@ using VivoxUnity;
 
 namespace Extreal.Integration.Chat.Vivox
 {
+    /// <summary>
+    /// Class that holds the channel config for Vivox.
+    /// </summary>
     public struct VivoxChannelConfig
     {
+        /// <summary>
+        /// Uses to create a channel ID.
+        /// </summary>
+        /// <value>Name of the channel.</value>
         public string ChannelName { get; }
+
+        /// <summary>
+        /// Uses in connection.
+        /// </summary>
+        /// <value>Chat type to be used in connection.</value>
         public ChatType ChatType { get; }
+
+        /// <summary>
+        /// Uses to create a channel ID.
+        /// </summary>
+        /// <value>Type of the channel.</value>
         public ChannelType ChannelType { get; }
+
+        /// <summary>
+        /// Uses to create a channel ID.
+        /// </summary>
+        /// <value>Property of the channel.</value>
         public Channel3DProperties Properties { get; }
+
+        /// <summary>
+        /// Uses in connection.
+        /// </summary>
+        /// <value>Transmission switch to be used in connection.</value>
         public bool TransmissionSwitch { get; }
+
+        /// <summary>
+        /// Uses to get the connection token.
+        /// </summary>
+        /// <value>Expiration duration of the token.</value>
         public TimeSpan TokenExpirationDuration { get; }
 
+        /// <summary>
+        /// Creates a new VivoxChannelConfig with given channelName, chatType, channelType, transmissionSwitch and tokenExpirationDuration.
+        /// </summary>
+        /// <param name="channelName">Name of the channel.</param>
+        /// <param name="chatType">Chat type to be used in connection.</param>
+        /// <param name="channelType">Type of the channel.</param>
+        /// <param name="transmissionSwitch">Transmission switch to be used in connection.</param>
+        /// <param name="tokenExpirationDuration">Expiration duration of the token.</param>
+        /// <exception cref="ArgumentNullException">If 'channelName' is null.</exception>
         public VivoxChannelConfig
         (
             string channelName,
