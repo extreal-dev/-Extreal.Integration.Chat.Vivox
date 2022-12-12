@@ -4,7 +4,6 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using Extreal.Core.Logging;
 using UniRx;
-using UnityEngine;
 using VivoxUnity;
 
 namespace Extreal.Integration.Chat.Vivox
@@ -159,16 +158,10 @@ namespace Extreal.Integration.Chat.Vivox
         /// Logs into the server.
         /// </summary>
         /// <param name="authConfig">Authentication config for login.</param>
-        public void Login(VivoxAuthConfig authConfig)
+        /// <exception cref="TimeoutException">If 'authConfig.Timeout' passes without login.</exception>
+        /// <returns>UniTask of this method.</returns>
+        public async UniTask Login(VivoxAuthConfig authConfig)
         {
-            if (Application.internetReachability == NetworkReachability.NotReachable)
-            {
-                if (Logger.IsDebug())
-                {
-                    Logger.LogDebug("This device is not connected to the Internet");
-                }
-                return;
-            }
             if (IsLoggingIn || IsLoggedIn)
             {
                 if (Logger.IsDebug())
@@ -189,7 +182,33 @@ namespace Extreal.Integration.Chat.Vivox
             var loginToken = LoginSession.GetLoginToken(appConfig.SecretKey, authConfig.TokenExpirationDuration);
 
             AddLoginSessionEventHandler();
-            _ = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, LoginSession.EndLogin);
+            var asyncResult = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, ar =>
+            {
+                try
+                {
+                    LoginSession.EndLogin(ar);
+                }
+                catch (Exception e)
+                {
+                    if (Logger.IsDebug())
+                    {
+                        Logger.LogDebug("The errors has occurred at 'BeginLogin'", e);
+                    }
+
+                    RemoveLoginSessionEventHandler();
+                    LoginSession = null;
+                }
+            });
+
+            try
+            {
+                await UniTask.WaitUntil(() => IsLoggedIn)
+                    .Timeout(authConfig.Timeout);
+            }
+            catch (TimeoutException)
+            {
+                throw new TimeoutException("The login timed-out");
+            }
         }
 
         /// <summary>
