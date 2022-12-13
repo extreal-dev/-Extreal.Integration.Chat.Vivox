@@ -4,8 +4,8 @@ namespace Extreal.Integration.Chat.Vivox.Test
 {
     public class VivoxAppConfigProvider : MonoBehaviour
     {
-        [SerializeField] private VivoxAppConfig vivoxAppConfig;
+        [SerializeField] private VivoxAppConfigSO vivoxAppConfigSO;
 
-        public VivoxAppConfig VivoxAppConfig => vivoxAppConfig;
+        public VivoxAppConfigSO VivoxAppConfigSO => vivoxAppConfigSO;
     }
 }

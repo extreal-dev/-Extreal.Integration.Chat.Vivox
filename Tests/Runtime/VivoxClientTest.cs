@@ -52,7 +52,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             await SceneManager.LoadSceneAsync("Main");
 
             var vivoxAppConfigProvider = UnityEngine.Object.FindObjectOfType<VivoxAppConfigProvider>();
-            var vivoxAppConfig = vivoxAppConfigProvider.VivoxAppConfig;
+            var vivoxAppConfig = vivoxAppConfigProvider.VivoxAppConfigSO;
 
             client = new VivoxClient(vivoxAppConfig);
 

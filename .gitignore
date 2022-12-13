@@ -59,4 +59,4 @@ sysinfo.txt
 crashlytics-build.properties
 
 # Vivox application config scriptable file
-VivoxAppConfig.asset*
+VivoxAppConfigSO.asset*

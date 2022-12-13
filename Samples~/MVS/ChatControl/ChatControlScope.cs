@@ -6,11 +6,11 @@ namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
 {
     public class ChatControlScope : LifetimeScope
     {
-        [SerializeField] private VivoxAppConfig vivoxAppConfig;
+        [SerializeField] private VivoxAppConfigSO vivoxAppConfigSO;
 
         protected override void Configure(IContainerBuilder builder)
         {
-            builder.RegisterComponent(vivoxAppConfig);
+            builder.RegisterComponent(vivoxAppConfigSO).AsImplementedInterfaces();
             builder.Register<VivoxClient>(Lifetime.Singleton);
             builder.Register<ChatControlModel>(Lifetime.Singleton);
 
