@@ -10,7 +10,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
 
         protected override void Configure(IContainerBuilder builder)
         {
-            builder.RegisterComponent(vivoxAppConfig);
+            builder.RegisterComponent(vivoxAppConfig).AsImplementedInterfaces();
             builder.Register<VivoxClient>(Lifetime.Singleton);
             builder.Register<ChatControlModel>(Lifetime.Singleton);
 

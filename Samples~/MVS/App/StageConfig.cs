@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Extreal.Core.StageNavigation;
+using UnityEngine;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.App
 {
