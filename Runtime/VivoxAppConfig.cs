@@ -6,9 +6,9 @@ namespace Extreal.Integration.Chat.Vivox
     /// Class that holds the application config for Vivox.
     /// </summary>
     [CreateAssetMenu(
-        menuName = "Extreal/Integration.Chat.Vivox/" + nameof(VivoxAppConfigSO),
-        fileName = nameof(VivoxAppConfigSO))]
-    public class VivoxAppConfigSO : ScriptableObject, IVivoxAppConfig
+        menuName = "Extreal/Integration.Chat.Vivox/" + nameof(VivoxAppConfig),
+        fileName = nameof(VivoxAppConfig))]
+    public class VivoxAppConfig : ScriptableObject, IVivoxAppConfig
     {
         [SerializeField] private string apiEndPoint;
         [SerializeField] private string domain;
