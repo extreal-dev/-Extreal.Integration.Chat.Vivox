@@ -167,7 +167,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad9e24923fe69ad48b11d8bdbeacec9b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  vivoxAppConfigSO: {fileID: 0}
+  vivoxAppConfig: {fileID: 0}
 --- !u!1 &1510269007
 GameObject:
   m_ObjectHideFlags: 0

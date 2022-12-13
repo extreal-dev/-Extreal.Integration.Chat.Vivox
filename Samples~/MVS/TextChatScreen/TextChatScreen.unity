@@ -132,7 +132,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 792607925}
-  - component: {fileID: 792607927}
+  - component: {fileID: 792607926}
   m_Layer: 0
   m_Name: View
   m_TagString: Untagged
@@ -155,7 +155,7 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &792607927
+--- !u!114 &792607926
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -164,13 +164,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 792607924}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 003e7d19b56f08e4bab20a45b9945da9, type: 3}
+  m_Script: {fileID: 11500000, guid: db0036da045152347affa682634d3b91, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   inputField: {fileID: 1398184525}
   sendButton: {fileID: 1519889867}
   messageRoot: {fileID: 1062719706}
-  textChatPrefab: {fileID: 2799407820062627549, guid: 93cb425d00025d64fb4fd0a80c765ec0,
+  textChatPrefab: {fileID: 2799407820062627549, guid: 9c47fbe0d7b5cd84caaae141b20bdbed,
     type: 3}
 --- !u!1 &877170926
 GameObject:
@@ -342,14 +342,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 1071534302}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1870a80d7d29cc3429e18c07745c9fc2, type: 3}
+  m_Script: {fileID: 11500000, guid: d7f4cfae5c88c0a49bccc16d123a6255, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   parentReference:
     TypeName: Extreal.Integration.Chat.Vivox.MVS.ChatControl.ChatControlScope
   autoRun: 1
   autoInjectGameObjects: []
-  textChatScreenView: {fileID: 792607927}
+  textChatScreenView: {fileID: 792607926}
 --- !u!1 &1088524823
 GameObject:
   m_ObjectHideFlags: 0
