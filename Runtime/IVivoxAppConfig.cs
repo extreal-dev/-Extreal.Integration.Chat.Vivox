@@ -1,42 +1,32 @@
-using UnityEngine;
-
 namespace Extreal.Integration.Chat.Vivox
 {
     /// <summary>
-    /// Class that holds the application config for Vivox.
+    /// Interface for implementation holding the application config for Vivox.
     /// </summary>
-    [CreateAssetMenu(
-        menuName = "Extreal/Integration.Chat.Vivox/" + nameof(VivoxAppConfig),
-        fileName = nameof(VivoxAppConfig))]
-    public class VivoxAppConfig : ScriptableObject
+    public interface IVivoxAppConfig
     {
-        [SerializeField] private string apiEndPoint;
-        [SerializeField] private string domain;
-        [SerializeField] private string issuer;
-        [SerializeField] private string secretKey;
-
         /// <summary>
         /// Uses to create a client.
         /// </summary>
         /// <value>API end point of Vivox API information.</value>
-        public string ApiEndPoint => apiEndPoint;
+        public string ApiEndPoint { get; }
 
         /// <summary>
         /// Uses to create an account ID and a channel ID.
         /// </summary>
         /// <value>Domain of Vivox API information.</value>
-        public string Domain => domain;
+        public string Domain { get; }
 
         /// <summary>
         /// Uses to create an account ID and a channel ID.
         /// </summary>
         /// <value>Issuer of Vivox API information.</value>
-        public string Issuer => issuer;
+        public string Issuer { get; }
 
         /// <summary>
         /// Uses to create an account ID and a channel ID.
         /// </summary>
         /// <value>Secret key of Vivox API information.</value>
-        public string SecretKey => secretKey;
+        public string SecretKey { get; }
     }
 }
