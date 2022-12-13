@@ -182,7 +182,7 @@ namespace Extreal.Integration.Chat.Vivox
             var loginToken = LoginSession.GetLoginToken(appConfig.SecretKey, authConfig.TokenExpirationDuration);
 
             AddLoginSessionEventHandler();
-            var asyncResult = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, ar =>
+            _ = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, ar =>
             {
                 try
                 {
