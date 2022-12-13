@@ -51,7 +51,10 @@ namespace Extreal.Integration.Chat.Vivox
         /// <param name="chatType">Chat type to be used in connection.</param>
         /// <param name="channelType">Type of the channel.</param>
         /// <param name="transmissionSwitch">Transmission switch to be used in connection.</param>
-        /// <param name="tokenExpirationDuration">Expiration duration of the token.</param>
+        /// <param name="tokenExpirationDuration">
+        ///     <para>Expiration duration of the token.</para>
+        ///     Default: 60 seconds
+        /// </param>
         /// <exception cref="ArgumentNullException">If 'channelName' is null.</exception>
         public VivoxChannelConfig
         (
