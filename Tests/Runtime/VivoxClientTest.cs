@@ -51,8 +51,15 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             await SceneManager.LoadSceneAsync("Main");
 
-            var vivoxAppConfigProvider = UnityEngine.Object.FindObjectOfType<VivoxAppConfigProvider>();
-            var vivoxAppConfig = vivoxAppConfigProvider.VivoxAppConfig;
+            var vivoxAppConfigSOProvider = UnityEngine.Object.FindObjectOfType<VivoxAppConfigSOProvider>();
+            var vivoxAppConfigSO = vivoxAppConfigSOProvider.VivoxAppConfigSO;
+            var vivoxAppConfig = new VivoxAppConfig
+            (
+                vivoxAppConfigSO.ApiEndPoint,
+                vivoxAppConfigSO.Domain,
+                vivoxAppConfigSO.Issuer,
+                vivoxAppConfigSO.SecretKey
+            );
 
             client = new VivoxClient(vivoxAppConfig);
 
@@ -162,7 +169,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         public void NewVivoxClientWithConfigNull()
             => Assert.That(() => _ = new VivoxClient(null),
                 Throws.TypeOf<ArgumentNullException>()
-                    .With.Message.Contain("'appConfig' or some value in it is null"));
+                    .With.Message.Contain("appConfig"));
 
         [UnityTest]
         public IEnumerator LoginSuccess() => UniTask.ToCoroutine(async () =>

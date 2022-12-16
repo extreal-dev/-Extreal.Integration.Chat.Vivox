@@ -99,7 +99,7 @@ namespace Extreal.Integration.Chat.Vivox
         private IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
             => LoginSession?.ChannelSessions;
 
-        private readonly IVivoxAppConfig appConfig;
+        private readonly VivoxAppConfig appConfig;
         private readonly CompositeDisposable disposables = new CompositeDisposable();
 
         private static readonly ELogger Logger = LoggingManager.GetLogger(nameof(VivoxClient));
@@ -108,10 +108,13 @@ namespace Extreal.Integration.Chat.Vivox
         /// Creates a new VivoxClient with given appConfig.
         /// </summary>
         /// <param name="appConfig">Application config to create a client.</param>
-        /// <exception cref="ArgumentNullException">If 'appConfig' or some value in it is null</exception>
-        public VivoxClient(IVivoxAppConfig appConfig)
+        /// <exception cref="ArgumentNullException">If 'appConfig' is null</exception>
+        public VivoxClient(VivoxAppConfig appConfig)
         {
-            CheckManualCredentials(appConfig);
+            if (appConfig == null)
+            {
+                throw new ArgumentNullException(nameof(appConfig));
+            }
 
             if (Logger.IsDebug())
             {
@@ -502,18 +505,6 @@ namespace Extreal.Integration.Chat.Vivox
         {
             var outputAsyncResult = Client.AudioOutputDevices.BeginRefresh(Client.AudioOutputDevices.EndRefresh);
             await UniTask.WaitUntil(() => outputAsyncResult.IsCompleted);
-        }
-
-        private static void CheckManualCredentials(IVivoxAppConfig appConfig)
-        {
-            if (appConfig == null
-                    || string.IsNullOrEmpty(appConfig.ApiEndPoint)
-                    || string.IsNullOrEmpty(appConfig.Domain)
-                    || string.IsNullOrEmpty(appConfig.Issuer)
-                    || string.IsNullOrEmpty(appConfig.SecretKey))
-            {
-                throw new ArgumentNullException(nameof(appConfig), $"'{nameof(appConfig)}' or some value in it is null");
-            }
         }
 
         private void OnMessageLogReceived(object sender, QueueItemAddedEventArgs<IChannelTextMessage> textMessage)
