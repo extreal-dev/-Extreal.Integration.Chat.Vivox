@@ -35,7 +35,10 @@ namespace Extreal.Integration.Chat.Vivox
         /// Creates a new VivoxAuthConfig with given displayName, accountName and tokenExpirationDuration.
         /// </summary>
         /// <param name="displayName">Display name of the account.</param>
-        /// <param name="accountName">Name of the account.</param>
+        /// <param name="accountName">
+        ///     <para>Name of the account.</para>
+        ///     Default: GUID
+        /// </param>
         /// <param name="tokenExpirationDuration">
         ///     <para>Expiration duration of the token.</para>
         ///     Default: 60 seconds
