@@ -144,6 +144,7 @@ namespace Extreal.Integration.Chat.Vivox
                 foreach (var channelSession in LoginSession.ChannelSessions)
                 {
                     RemoveChannelSessionEventHandler(channelSession);
+                    RemoveParticipantEventHandler(channelSession);
                 }
 
                 RemoveLoginSessionEventHandler();
@@ -235,7 +236,7 @@ namespace Extreal.Integration.Chat.Vivox
         /// Connects to the channel.
         /// </summary>
         /// <param name="channelConfig">Channel config for connection.</param>
-        public void Connect(VivoxChannelConfig channelConfig)
+        public async UniTask ConnectAsync(VivoxChannelConfig channelConfig)
         {
             if (!IsLoggedIn)
             {
@@ -276,6 +277,26 @@ namespace Extreal.Integration.Chat.Vivox
                 connectionToken,
                 channelSession.EndConnect
             );
+
+            try
+            {
+                await UniTask.WaitUntil(() => channelSession.ChannelState == ConnectionState.Connected)
+                    .Timeout(channelConfig.Timeout);
+            }
+            catch (TimeoutException)
+            {
+                throw new TimeoutException("The connection timed-out");
+            }
+
+            AddParticipantEventHandler(channelSession);
+
+            if (Logger.IsDebug())
+            {
+                Logger.LogDebug($"This client connected to the channel '{channelConfig.ChannelName}'");
+            }
+
+            var myself = channelSession.Participants.First(participant => participant.IsSelf);
+            onUserConnected.OnNext(myself);
         }
 
         /// <summary>
@@ -542,6 +563,7 @@ namespace Extreal.Integration.Chat.Vivox
 
             var channelSession = (sender as IReadOnlyDictionary<ChannelId, IChannelSession>)[channelId];
             RemoveChannelSessionEventHandler(channelSession);
+            RemoveParticipantEventHandler(channelSession);
 
             onChannelSessionRemoved.OnNext(channelId);
         }
@@ -681,19 +703,27 @@ namespace Extreal.Integration.Chat.Vivox
         private void AddChannelSessionEventHandler(IChannelSession channelSession)
         {
             channelSession.PropertyChanged += OnChannelPropertyChanged;
-            channelSession.Participants.AfterKeyAdded += OnParticipantAdded;
-            channelSession.Participants.BeforeKeyRemoved += OnParticipantRemoved;
-            channelSession.Participants.AfterValueUpdated += OnParticipantValueUpdated;
             channelSession.MessageLog.AfterItemAdded += OnMessageLogReceived;
         }
 
         private void RemoveChannelSessionEventHandler(IChannelSession channelSession)
         {
             channelSession.PropertyChanged -= OnChannelPropertyChanged;
+            channelSession.MessageLog.AfterItemAdded -= OnMessageLogReceived;
+        }
+
+        private void AddParticipantEventHandler(IChannelSession channelSession)
+        {
+            channelSession.Participants.AfterKeyAdded += OnParticipantAdded;
+            channelSession.Participants.BeforeKeyRemoved += OnParticipantRemoved;
+            channelSession.Participants.AfterValueUpdated += OnParticipantValueUpdated;
+        }
+
+        private void RemoveParticipantEventHandler(IChannelSession channelSession)
+        {
             channelSession.Participants.AfterKeyAdded -= OnParticipantAdded;
             channelSession.Participants.BeforeKeyRemoved -= OnParticipantRemoved;
             channelSession.Participants.AfterValueUpdated -= OnParticipantValueUpdated;
-            channelSession.MessageLog.AfterItemAdded -= OnMessageLogReceived;
         }
 
         private void AddLoginSessionEventHandler()
