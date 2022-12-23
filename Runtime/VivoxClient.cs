@@ -196,7 +196,7 @@ namespace Extreal.Integration.Chat.Vivox
                 {
                     if (Logger.IsDebug())
                     {
-                        Logger.LogDebug("The errors has occurred at 'BeginLogin'", e);
+                        Logger.LogDebug("An errors has occurred at 'BeginLogin'", e);
                     }
 
                     RemoveLoginSessionEventHandler();
@@ -532,7 +532,7 @@ namespace Extreal.Integration.Chat.Vivox
         {
             if (Logger.IsDebug())
             {
-                Logger.LogDebug("The message is received");
+                Logger.LogDebug("A message was received");
             }
 
             onTextMessageReceived.OnNext(textMessage.Value);
@@ -643,7 +643,14 @@ namespace Extreal.Integration.Chat.Vivox
 
             if (Logger.IsDebug())
             {
-                Logger.LogDebug($"A user disconnected from the channel '{channelName}'");
+                if (participant.IsSelf)
+                {
+                    Logger.LogDebug($"This client disconnected from the channel '{channelName}'");
+                }
+                else
+                {
+                    Logger.LogDebug($"A user disconnected from the channel '{channelName}'");
+                }
             }
 
             onUserDisconnected.OnNext(participant);
@@ -659,7 +666,7 @@ namespace Extreal.Integration.Chat.Vivox
                 var audioEnergy = valueEventArg.Value.AudioEnergy;
                 if (Logger.IsDebug())
                 {
-                    Logger.LogDebug("AudioEnergy was changed");
+                    Logger.LogDebug($"AudioEnergy was changed to {audioEnergy}");
                 }
 
                 onAudioEnergyChanged.OnNext((participant, audioEnergy));
