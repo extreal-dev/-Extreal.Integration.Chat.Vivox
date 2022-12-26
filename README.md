@@ -2,7 +2,7 @@
 
 ## How to test
 
-1. Create ScriptableObject `ChatConfig` and fill out the fields with vivox credential information.
+1. Create ScriptableObject `ChatConfig` from the Create Assets menu in the `/Extreal/Integration.Chat.Vivox/ChatConfig` directory and fill out the fields with vivox credential information.
 1. Open `Main` scene and put ScriptableObject above into the field `ChatConfig` of the component `ChatConfigProvider` in the GameObject `ChatConfigProvider`.
 1. Open `Build Settings` and put `Main` scene into `Scenes In Build`.
 1. Run `Extreal.Integration.Chat.Vivox.Test.dll`.
@@ -32,8 +32,8 @@
 
 ### How to play
 
-1. Create ScriptableObject `VivoxAppConfig` and fill out the fields with vivox credential information.
-1. Open `ChatControl` scene and put ScriptableObject above into the field `VivoxAppConfig` of the component `ChatControlScope` in the GameObject `Scope`.
+1. Create ScriptableObject `ChatConfig` from the Create Assets menu in the `/Config/ChatConfig` directory and fill out the fields with vivox credential information.
+1. Open `ChatControl` scene and put ScriptableObject above into the field `ChatConfig` of the component `ChatControlScope` in the GameObject `Scope`.
 1. Open `Build Settings` and put the scenes below into `Scenes In Build`.
     - `MVS/App/App`
     - `MVS/CameraControl/CameraControl`
