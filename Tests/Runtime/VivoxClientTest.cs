@@ -434,6 +434,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             onUserConnected = false;
 
             await UniTask.WaitUntil(() => onUserConnected);
+            await UniTask.WaitUntil(() => onUserDisconnected);
         });
 
         [UnityTest]
