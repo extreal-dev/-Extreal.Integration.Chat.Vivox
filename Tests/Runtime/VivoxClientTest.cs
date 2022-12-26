@@ -51,17 +51,10 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             await SceneManager.LoadSceneAsync("Main");
 
-            var vivoxAppConfigSOProvider = UnityEngine.Object.FindObjectOfType<VivoxAppConfigSOProvider>();
-            var vivoxAppConfigSO = vivoxAppConfigSOProvider.VivoxAppConfigSO;
-            var vivoxAppConfig = new VivoxAppConfig
-            (
-                vivoxAppConfigSO.ApiEndPoint,
-                vivoxAppConfigSO.Domain,
-                vivoxAppConfigSO.Issuer,
-                vivoxAppConfigSO.SecretKey
-            );
+            var chatConfigProvider = UnityEngine.Object.FindObjectOfType<ChatConfigProvider>();
+            var chatConfig = chatConfigProvider.ChatConfig;
 
-            client = new VivoxClient(vivoxAppConfig);
+            client = new VivoxClient(chatConfig.ToVivoxAppConfig());
 
             onLoggedIn = default;
             onLoggedOut = default;
@@ -176,7 +169,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
             Assert.IsTrue(onRecoveryStateChanged);
             Assert.AreEqual(ConnectionRecoveryState.Connected, changedRecoveryState);
@@ -187,13 +180,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
             client.Dispose();
             onLoggedOut = true;
@@ -202,6 +195,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator LoginWithoutInternetConnection() => UniTask.ToCoroutine(async () =>
         {
+            Debug.Log("<color=lime>Disable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
 
             const string displayName = "TestUser";
@@ -220,7 +214,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Application.logMessageReceived += errorHandling;
             try
             {
-                await client.Login(authConfig);
+                await client.LoginAsync(authConfig);
             }
             catch (Exception e)
             {
@@ -232,6 +226,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Assert.AreEqual(typeof(TimeoutException), exception.GetType());
             Assert.AreEqual("The login timed-out", exception.Message);
 
+            Debug.Log("<color=lime>Enable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
             await UniTask.Delay(TimeSpan.FromSeconds(10));
         });
@@ -241,10 +236,10 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client already logging/logged into the server");
         });
 
@@ -253,7 +248,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             client.Logout();
@@ -272,42 +267,78 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
+            await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onChannelSessionAdded);
+            Assert.IsTrue(onUserConnected);
             Assert.AreEqual(displayName, connectedUser.Account.DisplayName);
             Assert.AreEqual(authConfig.AccountName, connectedUser.Account.Name);
             Assert.AreEqual(channelName, addedChannelId.Name);
         });
 
-        [Test]
-        public void ConnectWithoutLogin()
+        [UnityTest]
+        public IEnumerator ConnectWithoutInternetConnection() => UniTask.ToCoroutine(async () =>
+        {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            Debug.Log("<color=lime>Disable the Internet connection</color>");
+            await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
+            Debug.Log("<color=lime>Enable the Internet connection</color>");
+            await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
+            Debug.Log("<color=lime>Disable the Internet connection</color>");
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName, timeout: TimeSpan.FromSeconds(35));
+
+            Exception exception = null;
+            try
+            {
+                await client.ConnectAsync(channelConfig);
+            }
+            catch (Exception e)
+            {
+                exception = e;
+            }
+
+            Assert.IsNotNull(exception);
+            Assert.AreEqual(typeof(TimeoutException), exception.GetType());
+            Assert.AreEqual("The connection timed-out", exception.Message);
+
+            Debug.Log("<color=lime>Enable the Internet connection</color>");
+            await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
+            await UniTask.Delay(TimeSpan.FromSeconds(10));
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutLogin() => UniTask.ToCoroutine(async () =>
         {
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
+            await client.ConnectAsync(channelConfig);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] Unable to connect before login");
-        }
+        });
 
         [UnityTest]
         public IEnumerator ConnectTwice() => UniTask.ToCoroutine(async () =>
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
-            client.Connect(channelConfig);
+            await client.ConnectAsync(channelConfig);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client already connected to the channel '{channelName}'");
         });
 
@@ -316,13 +347,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
             client.Disconnect(addedChannelId);
             await UniTask.WaitUntil(() => onChannelSessionRemoved);
@@ -346,13 +377,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
             client.DisconnectAllChannels();
             await UniTask.WaitUntil(() => onChannelSessionRemoved);
@@ -374,7 +405,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             client.DisconnectAllChannels();
@@ -382,17 +413,36 @@ namespace Extreal.Integration.Chat.Vivox.Test
         });
 
         [UnityTest]
-        public IEnumerator SendMessageSuccess() => UniTask.ToCoroutine(async () =>
+        public IEnumerator UserConnected() => UniTask.ToCoroutine(async () =>
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
+            onUserConnected = false;
+
+            Debug.Log("<color=lime>Run 'UserConnectedSub' test in another Unity Editor window</color>");
             await UniTask.WaitUntil(() => onUserConnected);
+            await UniTask.WaitUntil(() => onUserDisconnected);
+        });
+
+        [UnityTest]
+        public IEnumerator SendMessageSuccess() => UniTask.ToCoroutine(async () =>
+        {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
             var addedChannelSession = client.LoginSession.GetChannelSession(addedChannelId);
             await UniTask.WaitUntil(() => addedChannelSession.TextState == ConnectionState.Connected);
@@ -437,7 +487,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -451,7 +501,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             client.SetTransmissionMode(TransmissionMode.All);
@@ -462,13 +512,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
             client.SetTransmissionMode(TransmissionMode.Single, addedChannelId);
         });
@@ -485,7 +535,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             Assert.That(() => client.SetTransmissionMode(TransmissionMode.Single),
@@ -506,7 +556,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -597,14 +647,15 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
+            Debug.Log("<color=lime>Make a sound</color>");
             await UniTask.WaitUntil(() => onAudioEnergyChanged);
             Assert.AreNotEqual(0, changedAudioEnergy.audioEnergy);
         });
@@ -614,19 +665,22 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            client.Connect(channelConfig);
-            await UniTask.WaitUntil(() => onUserConnected);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
+            Debug.Log("<color=lime>Disable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
 
             await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.Recovering);
             await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+            await UniTask.WaitUntil(() => onLoggedOut);
 
+            Debug.Log("<color=lime>Enable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
             await UniTask.Delay(TimeSpan.FromSeconds(10));
         });

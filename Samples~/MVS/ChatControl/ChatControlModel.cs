@@ -19,7 +19,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
                 .Subscribe(_ =>
                 {
                     var vivoxChannelConfig = new VivoxChannelConfig("GuestChannel");
-                    vivoxClient.Connect(vivoxChannelConfig);
+                    vivoxClient.ConnectAsync(vivoxChannelConfig).Forget();
                 })
                 .AddTo(disposables);
 
@@ -34,7 +34,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
             if (AppUtils.IsSpace(stageName))
             {
                 var vivoxAuthConfig = new VivoxAuthConfig("Guest");
-                vivoxClient.Login(vivoxAuthConfig);
+                vivoxClient.LoginAsync(vivoxAuthConfig).Forget();
             }
             else
             {

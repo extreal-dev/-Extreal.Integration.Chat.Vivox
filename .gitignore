@@ -58,5 +58,5 @@ sysinfo.txt
 # Crashlytics generated file
 crashlytics-build.properties
 
-# Vivox application config scriptable file
-VivoxAppConfigSO.asset*
+# Chat config scriptable file
+chatConfig.asset*
