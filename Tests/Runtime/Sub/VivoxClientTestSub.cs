@@ -87,7 +87,7 @@ namespace Extreal.Integration.Chat.Vivox.Test.Sub
         {
             const string displayName = "TestSubUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";

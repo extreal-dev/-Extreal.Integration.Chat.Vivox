@@ -164,7 +164,7 @@ namespace Extreal.Integration.Chat.Vivox
         /// <param name="authConfig">Authentication config for login.</param>
         /// <exception cref="TimeoutException">If 'authConfig.Timeout' passes without login.</exception>
         /// <returns>UniTask of this method.</returns>
-        public async UniTask Login(VivoxAuthConfig authConfig)
+        public async UniTask LoginAsync(VivoxAuthConfig authConfig)
         {
             if (IsLoggingIn || IsLoggedIn)
             {

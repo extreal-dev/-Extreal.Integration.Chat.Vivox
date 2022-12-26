@@ -169,7 +169,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
             Assert.IsTrue(onRecoveryStateChanged);
             Assert.AreEqual(ConnectionRecoveryState.Connected, changedRecoveryState);
@@ -180,7 +180,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -214,7 +214,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Application.logMessageReceived += errorHandling;
             try
             {
-                await client.Login(authConfig);
+                await client.LoginAsync(authConfig);
             }
             catch (Exception e)
             {
@@ -236,10 +236,10 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client already logging/logged into the server");
         });
 
@@ -248,7 +248,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             client.Logout();
@@ -267,7 +267,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -285,7 +285,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             Debug.Log("<color=lime>Disable the Internet connection</color>");
@@ -330,7 +330,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -347,7 +347,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -377,7 +377,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -405,7 +405,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             client.DisconnectAllChannels();
@@ -417,7 +417,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -436,7 +436,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -487,7 +487,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -501,7 +501,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             client.SetTransmissionMode(TransmissionMode.All);
@@ -512,7 +512,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -535,7 +535,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             Assert.That(() => client.SetTransmissionMode(TransmissionMode.Single),
@@ -556,7 +556,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -647,7 +647,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
@@ -665,7 +665,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
-            await client.Login(authConfig);
+            await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
             const string channelName = "TestChannel";
