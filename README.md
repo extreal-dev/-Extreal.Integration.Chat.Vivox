@@ -2,13 +2,16 @@
 
 ## How to test
 
-1. Create ScriptableObject `VivoxAppConfig` and fill out the fields with vivox credential information.
-1. Open `Main` scene and put ScriptableObject above into the field `VivoxAppConfig` of the component `VivoxAppConfigProvider` in the GameObject `VivoxAppConfigProvider`.
+1. Create ScriptableObject `ChatConfig` and fill out the fields with vivox credential information.
+1. Open `Main` scene and put ScriptableObject above into the field `ChatConfig` of the component `ChatConfigProvider` in the GameObject `ChatConfigProvider`.
 1. Open `Build Settings` and put `Main` scene into `Scenes In Build`.
 1. Run `Extreal.Integration.Chat.Vivox.Test.dll`.
-1. Make a sound when stopping at `AudioEnergyChanged` in `VivoxClientTest`.
-1. Disable the Network Connection when stopping at `LoginWithoutInternetConnection` in `VivoxClientTest`, then enable it.
-1. Disable the Network Connection when stopping at `UnexpectedDisconnect` in `VivoxClientTest`, then enable it after 30 seconds or more.
+1. Follow the green directions when they appear in the following tests.
+    - `AudioEnergyChanged`
+    - `ConnectWithoutInternetConnection`
+    - `LoginWithoutInternetConnection`
+    - `UnexpectedDisconnect`
+    - `UserConnected`
 1. All tests are completed.
 
 ## How to play the sample
