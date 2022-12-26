@@ -195,7 +195,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator LoginWithoutInternetConnection() => UniTask.ToCoroutine(async () =>
         {
-            Debug.Log("<color=lime>Switch off the Internet connection</color>");
+            Debug.Log("<color=lime>Disable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
 
             const string displayName = "TestUser";
@@ -226,7 +226,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Assert.AreEqual(typeof(TimeoutException), exception.GetType());
             Assert.AreEqual("The login timed-out", exception.Message);
 
-            Debug.Log("<color=lime>Switch on the Internet connection</color>");
+            Debug.Log("<color=lime>Enable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
             await UniTask.Delay(TimeSpan.FromSeconds(10));
         });
@@ -288,11 +288,11 @@ namespace Extreal.Integration.Chat.Vivox.Test
             await client.Login(authConfig);
             Assert.IsTrue(onLoggedIn);
 
-            Debug.Log("<color=lime>Switch off the Internet connection</color>");
+            Debug.Log("<color=lime>Disable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
-            Debug.Log("<color=lime>Switch on the Internet connection</color>");
+            Debug.Log("<color=lime>Enable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
-            Debug.Log("<color=lime>Switch off the Internet connection</color>");
+            Debug.Log("<color=lime>Disable the Internet connection</color>");
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName, timeout: TimeSpan.FromSeconds(35));
@@ -311,7 +311,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Assert.AreEqual(typeof(TimeoutException), exception.GetType());
             Assert.AreEqual("The connection timed-out", exception.Message);
 
-            Debug.Log("<color=lime>Switch on the Internet connection</color>");
+            Debug.Log("<color=lime>Enable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
             await UniTask.Delay(TimeSpan.FromSeconds(10));
         });
@@ -426,6 +426,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Assert.IsTrue(onUserConnected);
             onUserConnected = false;
 
+            Debug.Log("<color=lime>Run 'UserConnectedSub' test in another Unity Editor window</color>");
             await UniTask.WaitUntil(() => onUserConnected);
             await UniTask.WaitUntil(() => onUserDisconnected);
         });
@@ -654,6 +655,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onUserConnected);
 
+            Debug.Log("<color=lime>Make a sound</color>");
             await UniTask.WaitUntil(() => onAudioEnergyChanged);
             Assert.AreNotEqual(0, changedAudioEnergy.audioEnergy);
         });
@@ -671,14 +673,14 @@ namespace Extreal.Integration.Chat.Vivox.Test
             await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onUserConnected);
 
-            Debug.Log("<color=lime>Switch off the Internet connection</color>");
+            Debug.Log("<color=lime>Disable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
 
             await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.Recovering);
             await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
             await UniTask.WaitUntil(() => onLoggedOut);
 
-            Debug.Log("<color=lime>Switch on the Internet connection</color>");
+            Debug.Log("<color=lime>Enable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
             await UniTask.Delay(TimeSpan.FromSeconds(10));
         });
