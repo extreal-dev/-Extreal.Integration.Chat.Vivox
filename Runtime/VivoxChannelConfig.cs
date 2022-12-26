@@ -45,9 +45,9 @@ namespace Extreal.Integration.Chat.Vivox
         public TimeSpan TokenExpirationDuration { get; }
 
         /// <summary>
-        /// Uses when login is not successful.
+        /// Uses when connection is not successful.
         /// </summary>
-        /// <value>Time to wait when login is not successful.</value>
+        /// <value>Time to wait when connection is not successful.</value>
         public TimeSpan Timeout { get; }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace Extreal.Integration.Chat.Vivox
         ///     Default: 60 seconds
         /// </param>
         /// <param name="timeout">
-        ///     <para>Time to wait when login is not successful.</para>
+        ///     <para>Time to wait when connection is not successful.</para>
         ///     Default: 10 seconds
         /// </param>
         /// <exception cref="ArgumentNullException">If 'channelName' is null.</exception>
