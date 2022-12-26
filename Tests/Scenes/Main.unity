@@ -134,7 +134,7 @@ GameObject:
   - component: {fileID: 1241879024}
   - component: {fileID: 1241879025}
   m_Layer: 0
-  m_Name: VivoxAppConfigSOProvider
+  m_Name: ChatConfigProvider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -164,10 +164,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1241879022}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0671a2151c184704593da69bf8a9c7fe, type: 3}
+  m_Script: {fileID: 11500000, guid: 3346cfa4c843dd44db73149ec99f11f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  vivoxAppConfigSO: {fileID: 0}
+  chatConfig: {fileID: 0}
 --- !u!1 &1510269007
 GameObject:
   m_ObjectHideFlags: 0

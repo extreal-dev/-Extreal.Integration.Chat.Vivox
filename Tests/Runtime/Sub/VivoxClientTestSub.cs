@@ -37,17 +37,10 @@ namespace Extreal.Integration.Chat.Vivox.Test.Sub
 
             await SceneManager.LoadSceneAsync("Main");
 
-            var vivoxAppConfigSOProvider = UnityEngine.Object.FindObjectOfType<VivoxAppConfigSOProvider>();
-            var vivoxAppConfigSO = vivoxAppConfigSOProvider.VivoxAppConfigSO;
-            var vivoxAppConfig = new VivoxAppConfig
-            (
-                vivoxAppConfigSO.ApiEndPoint,
-                vivoxAppConfigSO.Domain,
-                vivoxAppConfigSO.Issuer,
-                vivoxAppConfigSO.SecretKey
-            );
+            var chatConfigProvider = UnityEngine.Object.FindObjectOfType<ChatConfigProvider>();
+            var chatConfig = chatConfigProvider.ChatConfig;
 
-            client = new VivoxClient(vivoxAppConfig);
+            client = new VivoxClient(chatConfig.ToVivoxAppConfig());
 
             onLoggedIn = default;
             onLoggedOut = default;
