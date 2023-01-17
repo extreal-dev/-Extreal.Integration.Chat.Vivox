@@ -1,7 +1,7 @@
-using System;
-using UnityEngine;
+﻿using System;
 using TMPro;
 using UniRx;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen

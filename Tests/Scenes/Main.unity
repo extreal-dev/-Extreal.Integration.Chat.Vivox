@@ -167,7 +167,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3346cfa4c843dd44db73149ec99f11f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  chatConfig: {fileID: 0}
+  chatConfig: {fileID: 11400000, guid: 483543748f8d5de42a91490ce375a1af, type: 2}
 --- !u!1 &1510269007
 GameObject:
   m_ObjectHideFlags: 0
