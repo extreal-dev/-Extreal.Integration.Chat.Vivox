@@ -1,6 +1,6 @@
-using Cysharp.Threading.Tasks;
-using UnityEngine;
+﻿using Cysharp.Threading.Tasks;
 using TMPro;
+using UnityEngine;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
 {

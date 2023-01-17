@@ -1,4 +1,4 @@
-namespace Extreal.Integration.Chat.Vivox
+﻿namespace Extreal.Integration.Chat.Vivox
 {
     /// <summary>
     /// Enum for the chat type.

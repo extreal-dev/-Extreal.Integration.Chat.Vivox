@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using Cysharp.Threading.Tasks;
-using VContainer.Unity;
 using UniRx;
+using VContainer.Unity;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.VoiceChatScreen
 {

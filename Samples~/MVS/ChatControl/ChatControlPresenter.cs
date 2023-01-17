@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Extreal.Core.StageNavigation;
 using Extreal.Integration.Chat.Vivox.MVS.App;
 using UniRx;
