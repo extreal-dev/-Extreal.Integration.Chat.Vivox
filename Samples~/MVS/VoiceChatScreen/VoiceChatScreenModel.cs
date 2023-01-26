@@ -1,10 +1,11 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
+using Extreal.Core.Common.System;
 using UniRx;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.VoiceChatScreen
 {
-    public class VoiceChatScreenModel : IDisposable
+    public class VoiceChatScreenModel : DisposableBase
     {
         public IReadOnlyReactiveProperty<string> OnMuted => onMuted;
         private readonly ReactiveProperty<string> onMuted = new ReactiveProperty<string>("OFF");
@@ -21,11 +22,10 @@ namespace Extreal.Integration.Chat.Vivox.MVS.VoiceChatScreen
                 .Subscribe(_ => vivoxClient.Client.AudioInputDevices.Muted = true)
                 .AddTo(disposables);
 
-        public void Dispose()
+        protected override void ReleaseManagedResources()
         {
             onMuted.Dispose();
             disposables.Dispose();
-            GC.SuppressFinalize(this);
         }
 
         public void ToggleMute()

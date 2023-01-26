@@ -10,7 +10,8 @@
         "VContainer",
         "Unity.Collections",
         "Extreal.Core.StageNavigation",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Extreal.Core.Common"
     ],
     "includePlatforms": [
         "Android",

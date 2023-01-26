@@ -1,11 +1,12 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
+using Extreal.Core.Common.System;
 using UniRx;
 using VivoxUnity;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
 {
-    public class TextChatScreenModel : IDisposable
+    public class TextChatScreenModel : DisposableBase
     {
         public IObservable<string> OnTextMessageReceived
             => vivoxClient.OnTextMessageReceived.Select(receivedMessage => receivedMessage.Message);
@@ -24,11 +25,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
                 .Subscribe(channelId => activeChannelId = channelId)
                 .AddTo(disposables);
 
-        public void Dispose()
-        {
-            disposables.Dispose();
-            GC.SuppressFinalize(this);
-        }
+        protected override void ReleaseManagedResources() => disposables.Dispose();
 
         public void SendTextMessage(string message)
             => vivoxClient.SendTextMessage(message, activeChannelId);

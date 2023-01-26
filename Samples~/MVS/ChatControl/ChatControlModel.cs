@@ -1,11 +1,12 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
+using Extreal.Core.Common.System;
 using Extreal.Integration.Chat.Vivox.MVS.App;
 using UniRx;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
 {
-    public class ChatControlModel : IDisposable
+    public class ChatControlModel : DisposableBase
     {
         private readonly VivoxClient vivoxClient;
 
@@ -23,11 +24,7 @@ namespace Extreal.Integration.Chat.Vivox.MVS.ChatControl
                 })
                 .AddTo(disposables);
 
-        public void Dispose()
-        {
-            disposables.Dispose();
-            GC.SuppressFinalize(this);
-        }
+        protected override void ReleaseManagedResources() => disposables.Dispose();
 
         public void OnStageTransitioned(StageName stageName)
         {
