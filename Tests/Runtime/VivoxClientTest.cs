@@ -201,17 +201,17 @@ namespace Extreal.Integration.Chat.Vivox.Test
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
 
-            static void errorHandling(string logText, string traceBack, LogType logType)
+            static void ErrorHandling(string logText, string traceBack, LogType logType)
             {
                 if (logType == LogType.Error)
                 {
                     LogAssert.Expect(LogType.Error, logText);
                 }
-            };
+            }
 
             Exception exception = null;
 
-            Application.logMessageReceived += errorHandling;
+            Application.logMessageReceived += ErrorHandling;
             try
             {
                 await client.LoginAsync(authConfig);
@@ -220,7 +220,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
             {
                 exception = e;
             }
-            Application.logMessageReceived -= errorHandling;
+            Application.logMessageReceived -= ErrorHandling;
 
             Assert.IsNotNull(exception);
             Assert.AreEqual(typeof(TimeoutException), exception.GetType());
