@@ -10,7 +10,8 @@
         "VivoxUnity",
         "UniTask",
         "UniRx",
-        "Extreal.Integration.Chat.Vivox.Test"
+        "Extreal.Integration.Chat.Vivox.Test",
+        "Extreal.Framework.Analyzer"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
