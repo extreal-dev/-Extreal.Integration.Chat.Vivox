@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Linq;
 using Cysharp.Threading.Tasks;
+using Extreal.Core.Common.System;
 using Extreal.Core.Logging;
 using UniRx;
 using VivoxUnity;
@@ -11,7 +12,7 @@ namespace Extreal.Integration.Chat.Vivox
     /// <summary>
     /// Class that handles a client for Vivox.
     /// </summary>
-    public class VivoxClient : IDisposable
+    public class VivoxClient : DisposableBase
     {
 #pragma warning disable CC0033
         /// <summary>
@@ -127,10 +128,8 @@ namespace Extreal.Integration.Chat.Vivox
             Client.Initialize();
         }
 
-        /// <summary>
-        /// Disposes VivoxClient
-        /// </summary>
-        public void Dispose()
+        /// <inheritdoc/>
+        protected override void ReleaseManagedResources()
         {
             if (Logger.IsDebug())
             {
@@ -153,9 +152,6 @@ namespace Extreal.Integration.Chat.Vivox
 
             Client.Cleanup();
             Client?.Uninitialize();
-
-            GC.SuppressFinalize(this);
-
         }
 
         /// <summary>

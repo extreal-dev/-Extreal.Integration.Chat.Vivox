@@ -6,6 +6,7 @@
         "UnityEditor.TestRunner",
         "Extreal.Integration.Chat.Vivox",
         "Extreal.Core.Logging",
+        "Extreal.Core.Common",
         "VivoxUnity",
         "UniTask",
         "UniRx",
