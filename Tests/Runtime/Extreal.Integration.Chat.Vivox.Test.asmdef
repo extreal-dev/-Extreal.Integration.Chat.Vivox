@@ -9,8 +9,7 @@
         "Extreal.Core.Common",
         "VivoxUnity",
         "UniTask",
-        "UniRx",
-        "Extreal.Framework.Analyzer"
+        "UniRx"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
