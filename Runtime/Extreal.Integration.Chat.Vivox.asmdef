@@ -3,6 +3,7 @@
     "rootNamespace": "Extreal.Integration.Chat.Vivox",
     "references": [
         "Extreal.Core.Logging",
+        "Extreal.Core.Common",
         "VivoxUnity",
         "UniTask",
         "UniRx"

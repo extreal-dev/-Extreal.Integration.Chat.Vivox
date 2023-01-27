@@ -29,6 +29,7 @@
   - TextMeshPro
   - Extreal.Core.Logging
   - Extreal.Core.StageNavigation
+  - Extreal.Core.Common
 - Install this sample from Package Manager.
 
 ### How to play

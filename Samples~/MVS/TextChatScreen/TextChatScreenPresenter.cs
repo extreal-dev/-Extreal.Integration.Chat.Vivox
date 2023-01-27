@@ -1,11 +1,12 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
+using Extreal.Core.Common.System;
 using UniRx;
 using VContainer.Unity;
 
 namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
 {
-    public class TextChatScreenPresenter : IInitializable, IDisposable
+    public class TextChatScreenPresenter : DisposableBase, IInitializable
     {
         private readonly TextChatScreenView textChatScreenView;
         private readonly TextChatScreenModel textChatScreenModel;
@@ -35,10 +36,6 @@ namespace Extreal.Integration.Chat.Vivox.MVS.TextChatScreen
                 .AddTo(disposables);
         }
 
-        public void Dispose()
-        {
-            disposables.Dispose();
-            GC.SuppressFinalize(this);
-        }
+        protected override void ReleaseManagedResources() => disposables.Dispose();
     }
 }
