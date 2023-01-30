@@ -21,7 +21,7 @@ namespace Extreal.Integration.Chat.Vivox.Test.Sub
         private bool onLoggedOut;
 
         private bool onUserConnected;
-        private List<IParticipant> connectedUsers = new List<IParticipant>();
+        private readonly List<IParticipant> connectedUsers = new List<IParticipant>();
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeCracker", "CC0033")]
         private readonly CompositeDisposable disposables = new CompositeDisposable();
