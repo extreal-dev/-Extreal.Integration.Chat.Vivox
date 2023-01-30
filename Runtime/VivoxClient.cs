@@ -182,23 +182,7 @@ namespace Extreal.Integration.Chat.Vivox
             var loginToken = LoginSession.GetLoginToken(appConfig.SecretKey, authConfig.TokenExpirationDuration);
 
             AddLoginSessionEventHandler();
-            _ = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, ar =>
-            {
-                try
-                {
-                    LoginSession.EndLogin(ar);
-                }
-                catch (Exception e)
-                {
-                    if (Logger.IsDebug())
-                    {
-                        Logger.LogDebug("An errors has occurred at 'BeginLogin'", e);
-                    }
-
-                    RemoveLoginSessionEventHandler();
-                    LoginSession = null;
-                }
-            });
+            _ = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, EndLogin);
 
             try
             {
@@ -208,6 +192,24 @@ namespace Extreal.Integration.Chat.Vivox
             catch (TimeoutException)
             {
                 throw new TimeoutException("The login timed-out");
+            }
+        }
+
+        private void EndLogin(IAsyncResult result)
+        {
+            try
+            {
+                LoginSession.EndLogin(result);
+            }
+            catch (Exception e)
+            {
+                if (Logger.IsDebug())
+                {
+                    Logger.LogDebug("An errors has occurred at 'BeginLogin'", e);
+                }
+
+                RemoveLoginSessionEventHandler();
+                LoginSession = null;
             }
         }
 
@@ -639,14 +641,9 @@ namespace Extreal.Integration.Chat.Vivox
 
             if (Logger.IsDebug())
             {
-                if (participant.IsSelf)
-                {
-                    Logger.LogDebug($"This client disconnected from the channel '{channelName}'");
-                }
-                else
-                {
-                    Logger.LogDebug($"A user disconnected from the channel '{channelName}'");
-                }
+                Logger.LogDebug(participant.IsSelf
+                    ? $"This client disconnected from the channel '{channelName}'"
+                    : $"A user disconnected from the channel '{channelName}'");
             }
 
             onUserDisconnected.OnNext(participant);
