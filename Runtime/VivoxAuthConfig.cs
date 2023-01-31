@@ -5,7 +5,7 @@ namespace Extreal.Integration.Chat.Vivox
     /// <summary>
     /// Class that holds the authentication config for Vivox.
     /// </summary>
-    public struct VivoxAuthConfig
+    public readonly struct VivoxAuthConfig
     {
         /// <summary>
         /// Uses to create an account ID.

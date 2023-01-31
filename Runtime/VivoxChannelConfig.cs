@@ -6,7 +6,7 @@ namespace Extreal.Integration.Chat.Vivox
     /// <summary>
     /// Class that holds the channel config for Vivox.
     /// </summary>
-    public struct VivoxChannelConfig
+    public readonly struct VivoxChannelConfig
     {
         /// <summary>
         /// Uses to create a channel ID.
