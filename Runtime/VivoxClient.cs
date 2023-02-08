@@ -151,7 +151,7 @@ namespace Extreal.Integration.Chat.Vivox
             }
 
             Client.Cleanup();
-            Client?.Uninitialize();
+            Client.Uninitialize();
         }
 
         /// <summary>
