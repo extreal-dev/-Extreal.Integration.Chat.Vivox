@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using Extreal.Core.Common.System;
@@ -158,8 +159,9 @@ namespace Extreal.Integration.Chat.Vivox
         /// Logs into the server.
         /// </summary>
         /// <param name="authConfig">Authentication config for login.</param>
-        /// <exception cref="TimeoutException">If 'authConfig.Timeout' passes without login.</exception>
+        /// <exception cref="VivoxConnectionException">If the login failed.</exception>
         /// <returns>UniTask of this method.</returns>
+        [SuppressMessage("Style", "CC0020")]
         public async UniTask LoginAsync(VivoxAuthConfig authConfig)
         {
             if (IsLoggingIn || IsLoggedIn)
@@ -181,36 +183,35 @@ namespace Extreal.Integration.Chat.Vivox
             LoginSession = Client.GetLoginSession(accountId);
             var loginToken = LoginSession.GetLoginToken(appConfig.SecretKey, authConfig.TokenExpirationDuration);
 
+            Exception exception = null;
             AddLoginSessionEventHandler();
-            _ = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, EndLogin);
-
-            try
+            var result = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, ar =>
             {
-                await UniTask.WaitUntil(() => IsLoggedIn)
-                    .Timeout(authConfig.Timeout);
-            }
-            catch (TimeoutException)
-            {
-                throw new TimeoutException("The login timed-out");
-            }
-        }
-
-        private void EndLogin(IAsyncResult result)
-        {
-            try
-            {
-                LoginSession.EndLogin(result);
-            }
-            catch (Exception e)
-            {
-                if (Logger.IsDebug())
+                try
                 {
-                    Logger.LogDebug("An errors has occurred at 'BeginLogin'", e);
+                    LoginSession.EndLogin(ar);
                 }
+                catch (Exception e)
+                {
+                    if (Logger.IsDebug())
+                    {
+                        Logger.LogDebug("An errors has occurred at 'BeginLogin'", e);
+                    }
 
-                RemoveLoginSessionEventHandler();
-                LoginSession = null;
+                    RemoveLoginSessionEventHandler();
+                    LoginSession = null;
+                    exception = e;
+                }
+            });
+
+            await UniTask.WaitUntil(() => result.IsCompleted);
+
+            if (exception != null)
+            {
+                throw new VivoxConnectionException("The login failed", exception);
             }
+
+            await UniTask.WaitUntil(() => LoginSession.State is LoginState.LoggedIn);
         }
 
         /// <summary>
@@ -234,6 +235,9 @@ namespace Extreal.Integration.Chat.Vivox
         /// Connects to the channel.
         /// </summary>
         /// <param name="channelConfig">Channel config for connection.</param>
+        /// <exception cref="VivoxConnectionException">If the connection failed.</exception>
+        /// <returns>UniTask of this method.</returns>
+        [SuppressMessage("Style", "CC0020")]
         public async UniTask ConnectAsync(VivoxChannelConfig channelConfig)
         {
             if (!IsLoggedIn)
@@ -267,7 +271,7 @@ namespace Extreal.Integration.Chat.Vivox
             AddChannelSessionEventHandler(channelSession);
 
             var connectionToken = channelSession.GetConnectToken(appConfig.SecretKey, channelConfig.TokenExpirationDuration);
-            _ = channelSession.BeginConnect
+            var result = channelSession.BeginConnect
             (
                 channelConfig.ChatType != ChatType.TextOnly,
                 channelConfig.ChatType != ChatType.AudioOnly,
@@ -276,14 +280,12 @@ namespace Extreal.Integration.Chat.Vivox
                 channelSession.EndConnect
             );
 
-            try
+            await UniTask.WaitUntil(() => result.IsCompleted);
+
+            await UniTask.WaitUntil(() => channelSession.ChannelState is ConnectionState.Connected or ConnectionState.Disconnected);
+            if (channelSession.ChannelState == ConnectionState.Disconnected)
             {
-                await UniTask.WaitUntil(() => channelSession.ChannelState == ConnectionState.Connected)
-                    .Timeout(channelConfig.Timeout);
-            }
-            catch (TimeoutException)
-            {
-                throw new TimeoutException("The connection timed-out");
+                throw new VivoxConnectionException("The connection failed");
             }
 
             AddParticipantEventHandler(channelSession);

@@ -195,23 +195,15 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator LoginWithoutInternetConnection() => UniTask.ToCoroutine(async () =>
         {
+            LogAssert.ignoreFailingMessages = true;
+
             Debug.Log("<color=lime>Disable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
 
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
 
-            static void ErrorHandling(string logText, string traceBack, LogType logType)
-            {
-                if (logType == LogType.Error)
-                {
-                    LogAssert.Expect(LogType.Error, logText);
-                }
-            }
-
             Exception exception = null;
-
-            Application.logMessageReceived += ErrorHandling;
             try
             {
                 await client.LoginAsync(authConfig);
@@ -220,11 +212,10 @@ namespace Extreal.Integration.Chat.Vivox.Test
             {
                 exception = e;
             }
-            Application.logMessageReceived -= ErrorHandling;
 
             Assert.IsNotNull(exception);
-            Assert.AreEqual(typeof(TimeoutException), exception.GetType());
-            Assert.AreEqual("The login timed-out", exception.Message);
+            Assert.AreEqual(typeof(VivoxConnectionException), exception.GetType());
+            Assert.AreEqual("The login failed", exception.Message);
 
             Debug.Log("<color=lime>Enable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
@@ -287,12 +278,9 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             Debug.Log("<color=lime>Disable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
-            Debug.Log("<color=lime>Enable the Internet connection</color>");
-            await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
-            Debug.Log("<color=lime>Disable the Internet connection</color>");
 
             const string channelName = "TestChannel";
-            var channelConfig = new VivoxChannelConfig(channelName, timeout: TimeSpan.FromSeconds(35));
+            var channelConfig = new VivoxChannelConfig(channelName);
 
             Exception exception = null;
             try
@@ -305,8 +293,8 @@ namespace Extreal.Integration.Chat.Vivox.Test
             }
 
             Assert.IsNotNull(exception);
-            Assert.AreEqual(typeof(TimeoutException), exception.GetType());
-            Assert.AreEqual("The connection timed-out", exception.Message);
+            Assert.AreEqual(typeof(VivoxConnectionException), exception.GetType());
+            Assert.AreEqual("The connection failed", exception.Message);
 
             Debug.Log("<color=lime>Enable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
