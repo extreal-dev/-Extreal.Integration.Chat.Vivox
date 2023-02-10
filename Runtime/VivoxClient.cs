@@ -308,6 +308,14 @@ namespace Extreal.Integration.Chat.Vivox
             {
                 throw new ArgumentNullException(nameof(channelId));
             }
+            if (!IsLoggedIn)
+            {
+                if (Logger.IsDebug())
+                {
+                    Logger.LogDebug("This client has already disconnected from the channel");
+                }
+                return;
+            }
 
             LoginSession.DeleteChannelSession(channelId);
         }

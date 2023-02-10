@@ -144,7 +144,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTearDown]
         public IEnumerator DisposeAsync() => UniTask.ToCoroutine(async () =>
         {
-            if (onLoggedIn)
+            if (client.LoginSession?.State == LoginState.LoggedIn)
             {
                 client.Logout();
                 await UniTask.WaitUntil(() => onLoggedOut);
@@ -250,9 +250,6 @@ namespace Extreal.Integration.Chat.Vivox.Test
             var authConfig = new VivoxAuthConfig(displayName);
             await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
-
-            client.Logout();
-            await UniTask.WaitUntil(() => onLoggedOut);
         });
 
         [Test]
@@ -361,9 +358,27 @@ namespace Extreal.Integration.Chat.Vivox.Test
             Assert.AreEqual(channelName, removedChannelId.Name);
             Assert.IsTrue(onUserDisconnected);
             Assert.IsTrue(disconnectedUser.IsSelf);
+        });
+
+        [UnityTest]
+        public IEnumerator DisconnectWithoutLogin() => UniTask.ToCoroutine(async () =>
+        {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
             client.Logout();
             await UniTask.WaitUntil(() => onLoggedOut);
+
+            client.Disconnect(addedChannelId);
+            Assert.IsFalse(onUserDisconnected);
+            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client has already disconnected from the channel");
         });
 
         [Test]
@@ -388,15 +403,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
             client.DisconnectAllChannels();
             await UniTask.WaitUntil(() => onChannelSessionRemoved);
             Assert.AreEqual(channelName, removedChannelId.Name);
-
-            client.Logout();
-            await UniTask.WaitUntil(() => onLoggedOut);
         });
 
         [Test]
         public void DisconnectAllChannelsWithoutLogin()
         {
             client.DisconnectAllChannels();
+            Assert.IsFalse(onUserDisconnected);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client has already disconnected from all channels");
         }
 
