@@ -306,8 +306,9 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            await client.ConnectAsync(channelConfig);
+            var channelId = await client.ConnectAsync(channelConfig);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] Unable to connect before login");
+            Assert.IsNull(channelId);
         });
 
         [UnityTest]
@@ -320,11 +321,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            await client.ConnectAsync(channelConfig);
+            var channelId1st = await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onUserConnected);
+            Assert.IsNotNull(channelId1st);
 
-            await client.ConnectAsync(channelConfig);
+            var channelId2nd = await client.ConnectAsync(channelConfig);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client already connected to the channel '{channelName}'");
+            Assert.IsTrue(channelId1st.Equals(channelId2nd));
         });
 
         [UnityTest]
@@ -337,12 +340,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            await client.ConnectAsync(channelConfig);
+            var channelId = await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onUserConnected);
 
-            client.Disconnect(addedChannelId);
+            client.Disconnect(channelId);
             await UniTask.WaitUntil(() => onChannelSessionRemoved);
             await UniTask.WaitUntil(() => onUserDisconnected);
+            Assert.AreEqual(addedChannelId, channelId);
             Assert.AreEqual(channelName, removedChannelId.Name);
             Assert.IsTrue(onUserDisconnected);
             Assert.IsTrue(disconnectedUser.IsSelf);
@@ -358,13 +362,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            await client.ConnectAsync(channelConfig);
+            var channelId = await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onUserConnected);
 
             client.Logout();
             await UniTask.WaitUntil(() => onLoggedOut);
 
-            client.Disconnect(addedChannelId);
+            client.Disconnect(channelId);
             Assert.IsFalse(onUserDisconnected);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client has already disconnected from the channel");
         });

@@ -236,9 +236,9 @@ namespace Extreal.Integration.Chat.Vivox
         /// </summary>
         /// <param name="channelConfig">Channel config for connection.</param>
         /// <exception cref="VivoxConnectionException">If the connection failed.</exception>
-        /// <returns>UniTask of this method.</returns>
+        /// <returns>ID of the connected channel. null if not logged in.</returns>
         [SuppressMessage("Style", "CC0020")]
-        public async UniTask ConnectAsync(VivoxChannelConfig channelConfig)
+        public async UniTask<ChannelId> ConnectAsync(VivoxChannelConfig channelConfig)
         {
             if (!IsLoggedIn)
             {
@@ -246,10 +246,10 @@ namespace Extreal.Integration.Chat.Vivox
                 {
                     Logger.LogDebug("Unable to connect before login");
                 }
-                return;
+                return null;
             }
 
-            var channel = new ChannelId
+            var channelId = new ChannelId
             (
                 appConfig.Issuer,
                 channelConfig.ChannelName,
@@ -258,14 +258,14 @@ namespace Extreal.Integration.Chat.Vivox
                 channelConfig.Properties
             );
 
-            var channelSession = LoginSession.GetChannelSession(channel);
+            var channelSession = LoginSession.GetChannelSession(channelId);
             if (channelSession.ChannelState != ConnectionState.Disconnected)
             {
                 if (Logger.IsDebug())
                 {
                     Logger.LogDebug($"This client already connected to the channel '{channelConfig.ChannelName}'");
                 }
-                return;
+                return channelId;
             }
 
             AddChannelSessionEventHandler(channelSession);
@@ -297,6 +297,8 @@ namespace Extreal.Integration.Chat.Vivox
 
             var myself = channelSession.Participants.First(participant => participant.IsSelf);
             onUserConnected.OnNext(myself);
+
+            return channelId;
         }
 
         /// <summary>
