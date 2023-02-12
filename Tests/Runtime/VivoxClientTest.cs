@@ -312,6 +312,27 @@ namespace Extreal.Integration.Chat.Vivox.Test
         });
 
         [UnityTest]
+        public IEnumerator ConnectWithoutLoginIfLoggedInBefore() => UniTask.ToCoroutine(async () =>
+        {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            client.Logout();
+            await UniTask.WaitUntil(() => onLoggedOut);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onChannelSessionAdded);
+            Assert.IsTrue(onUserConnected);
+            Assert.AreEqual(displayName, connectedUser.Account.DisplayName);
+            Assert.AreEqual(authConfig.AccountName, connectedUser.Account.Name);
+            Assert.AreEqual(channelName, addedChannelId.Name);
+        });
+
+        [UnityTest]
         public IEnumerator ConnectTwice() => UniTask.ToCoroutine(async () =>
         {
             const string displayName = "TestUser";

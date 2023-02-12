@@ -155,6 +155,8 @@ namespace Extreal.Integration.Chat.Vivox
             Client.Uninitialize();
         }
 
+        private Func<UniTask> loginAsync;
+
         /// <summary>
         /// Logs into the server.
         /// </summary>
@@ -164,54 +166,59 @@ namespace Extreal.Integration.Chat.Vivox
         [SuppressMessage("Style", "CC0020")]
         public async UniTask LoginAsync(VivoxAuthConfig authConfig)
         {
-            if (IsLoggingIn || IsLoggedIn)
+            loginAsync = async () =>
             {
-                if (Logger.IsDebug())
-                {
-                    Logger.LogDebug("This client already logging/logged into the server");
-                }
-                return;
-            }
-
-            var accountId = new AccountId
-            (
-                appConfig.Issuer,
-                authConfig.AccountName,
-                appConfig.Domain,
-                authConfig.DisplayName
-            );
-            LoginSession = Client.GetLoginSession(accountId);
-            var loginToken = LoginSession.GetLoginToken(appConfig.SecretKey, authConfig.TokenExpirationDuration);
-
-            Exception exception = null;
-            AddLoginSessionEventHandler();
-            var result = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, ar =>
-            {
-                try
-                {
-                    LoginSession.EndLogin(ar);
-                }
-                catch (Exception e)
+                if (IsLoggingIn || IsLoggedIn)
                 {
                     if (Logger.IsDebug())
                     {
-                        Logger.LogDebug("An errors has occurred at 'BeginLogin'", e);
+                        Logger.LogDebug("This client already logging/logged into the server");
                     }
 
-                    RemoveLoginSessionEventHandler();
-                    LoginSession = null;
-                    exception = e;
+                    return;
                 }
-            });
 
-            await UniTask.WaitUntil(() => result.IsCompleted);
+                var accountId = new AccountId
+                (
+                    appConfig.Issuer,
+                    authConfig.AccountName,
+                    appConfig.Domain,
+                    authConfig.DisplayName
+                );
+                LoginSession = Client.GetLoginSession(accountId);
+                var loginToken = LoginSession.GetLoginToken(appConfig.SecretKey, authConfig.TokenExpirationDuration);
 
-            if (exception != null)
-            {
-                throw new VivoxConnectionException("The login failed", exception);
-            }
+                Exception exception = null;
+                AddLoginSessionEventHandler();
+                var result = LoginSession.BeginLogin(loginToken, SubscriptionMode.Accept, null, null, null, ar =>
+                {
+                    try
+                    {
+                        LoginSession.EndLogin(ar);
+                    }
+                    catch (Exception e)
+                    {
+                        if (Logger.IsDebug())
+                        {
+                            Logger.LogDebug("An errors has occurred at 'BeginLogin'", e);
+                        }
 
-            await UniTask.WaitUntil(() => LoginSession.State is LoginState.LoggedIn);
+                        RemoveLoginSessionEventHandler();
+                        LoginSession = null;
+                        exception = e;
+                    }
+                });
+
+                await UniTask.WaitUntil(() => result.IsCompleted);
+
+                if (exception != null)
+                {
+                    throw new VivoxConnectionException("The login failed", exception);
+                }
+
+                await UniTask.WaitUntil(() => LoginSession.State is LoginState.LoggedIn);
+            };
+            await loginAsync.Invoke();
         }
 
         /// <summary>
@@ -242,11 +249,17 @@ namespace Extreal.Integration.Chat.Vivox
         {
             if (!IsLoggedIn)
             {
-                if (Logger.IsDebug())
+                if (loginAsync == null)
                 {
-                    Logger.LogDebug("Unable to connect before login");
+                    if (Logger.IsDebug())
+                    {
+                        Logger.LogDebug("Unable to connect before login");
+                    }
+                    return null;
                 }
-                return null;
+
+                await loginAsync.Invoke();
+                await UniTask.WaitUntil(() => IsLoggedIn);
             }
 
             var channelId = new ChannelId
