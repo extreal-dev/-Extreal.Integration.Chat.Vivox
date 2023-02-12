@@ -126,7 +126,7 @@ namespace Extreal.Integration.Chat.Vivox
             this.appConfig = appConfig;
 
             Client = new Client(new Uri(appConfig.ApiEndPoint));
-            Client.Initialize();
+            Client.Initialize(appConfig.VivoxConfig);
         }
 
         /// <inheritdoc/>

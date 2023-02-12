@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using Extreal.Core.Logging;
 using NUnit.Framework;
@@ -9,7 +11,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using VivoxUnity;
-
+using Object = UnityEngine.Object;
 
 namespace Extreal.Integration.Chat.Vivox.Test
 {
@@ -37,7 +39,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         private bool onAudioEnergyChanged;
         private (IParticipant participant, double audioEnergy) changedAudioEnergy;
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeCracker", "CC0033")]
+        [SuppressMessage("CodeCracker", "CC0033")]
         private readonly CompositeDisposable disposables = new CompositeDisposable();
 
         [OneTimeSetUp]
@@ -51,10 +53,18 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             await SceneManager.LoadSceneAsync("Main");
 
-            var chatConfigProvider = UnityEngine.Object.FindObjectOfType<ChatConfigProvider>();
-            var chatConfig = chatConfigProvider.ChatConfig;
+            InitializeClient();
+        });
 
-            client = new VivoxClient(chatConfig.ToVivoxAppConfig());
+        private void InitializeClient(VivoxConfig vivoxConfig = null)
+        {
+            DisposeClient();
+
+            var chatConfigProvider = Object.FindObjectOfType<ChatConfigProvider>();
+            var appConfig = chatConfigProvider.ChatConfig.ToVivoxAppConfig();
+
+            client = new VivoxClient(new VivoxAppConfig(
+                appConfig.ApiEndPoint, appConfig.Domain, appConfig.Issuer, appConfig.SecretKey, vivoxConfig));
 
             onLoggedIn = default;
             onLoggedOut = default;
@@ -139,7 +149,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
                     this.changedAudioEnergy = changedAudioEnergy;
                 })
                 .AddTo(disposables);
-        });
+        }
+
+        private void DisposeClient()
+        {
+            client?.Dispose();
+            disposables.Clear();
+        }
 
         [UnityTearDown]
         public IEnumerator DisposeAsync() => UniTask.ToCoroutine(async () =>
@@ -150,8 +166,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
                 await UniTask.WaitUntil(() => onLoggedOut);
             }
 
-            client.Dispose();
-            disposables.Clear();
+            DisposeClient();
         });
 
         [OneTimeTearDown]
@@ -167,6 +182,25 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator LoginSuccess() => UniTask.ToCoroutine(async () =>
         {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+            Assert.IsTrue(onRecoveryStateChanged);
+            Assert.AreEqual(ConnectionRecoveryState.Connected, changedRecoveryState);
+        });
+
+        [UnityTest]
+        public IEnumerator LoginSuccessWithVivoxConfigLogLevelDebug() => UniTask.ToCoroutine(async () =>
+        {
+            LogAssert.Expect(LogType.Log, new Regex(".*VivoxApi.*"));
+
+            var vivoxConfig = new VivoxConfig
+            {
+                InitialLogLevel = vx_log_level.log_debug
+            };
+            InitializeClient(vivoxConfig);
+
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
             await client.LoginAsync(authConfig);
@@ -196,6 +230,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         public IEnumerator LoginWithoutInternetConnection() => UniTask.ToCoroutine(async () =>
         {
             LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
 
             Debug.Log("<color=lime>Disable the Internet connection</color>");
             await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
