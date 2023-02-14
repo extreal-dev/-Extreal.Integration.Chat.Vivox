@@ -61,10 +61,9 @@ namespace Extreal.Integration.Chat.Vivox.Test
             DisposeClient();
 
             var chatConfigProvider = Object.FindObjectOfType<ChatConfigProvider>();
-            var appConfig = chatConfigProvider.ChatConfig.ToVivoxAppConfig();
+            var appConfig = chatConfigProvider.ChatConfig.ToVivoxAppConfig(vivoxConfig);
 
-            client = new VivoxClient(new VivoxAppConfig(
-                appConfig.ApiEndPoint, appConfig.Domain, appConfig.Issuer, appConfig.SecretKey, vivoxConfig));
+            client = new VivoxClient(appConfig);
 
             onLoggedIn = default;
             onLoggedOut = default;
