@@ -259,7 +259,6 @@ namespace Extreal.Integration.Chat.Vivox
                 }
 
                 await loginAsync.Invoke();
-                await UniTask.WaitUntil(() => IsLoggedIn);
             }
 
             var channelId = new ChannelId
