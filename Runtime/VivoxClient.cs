@@ -216,7 +216,7 @@ namespace Extreal.Integration.Chat.Vivox
                     throw new VivoxConnectionException("The login failed", exception);
                 }
 
-                await UniTask.WaitUntil(() => LoginSession.State is LoginState.LoggedIn);
+                await UniTask.WaitUntil(() => IsLoggedIn);
             };
             await loginAsync.Invoke();
         }
