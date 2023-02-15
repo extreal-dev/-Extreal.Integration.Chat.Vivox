@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 using Cysharp.Threading.Tasks;
+using Extreal.Core.Common.Retry;
 using Extreal.Core.Common.System;
 using Extreal.Core.Logging;
 using UniRx;
@@ -81,6 +84,20 @@ namespace Extreal.Integration.Chat.Vivox
             => onAudioEnergyChanged.AddTo(disposables);
         private readonly Subject<(IParticipant participant, double audioEnergy)> onAudioEnergyChanged
             = new Subject<(IParticipant participant, double audioEnergy)>();
+
+        /// <summary>
+        /// <para>Invokes just before retrying to connect to the server.</para>
+        /// Arg: Retry count
+        /// </summary>
+        public IObservable<int> OnConnectRetrying => onConnectRetrying.AddTo(disposables);
+        private readonly Subject<int> onConnectRetrying = new Subject<int>();
+
+        /// <summary>
+        /// <para>Invokes immediately after finishing retrying to connect to the server.</para>
+        /// Arg: Final results of retry. True for success, false for failure.
+        /// </summary>
+        public IObservable<bool> OnConnectRetried => onConnectRetried.AddTo(disposables);
+        private readonly Subject<bool> onConnectRetried = new Subject<bool>();
 #pragma warning restore CC0033
 
         /// <summary>
@@ -98,11 +115,17 @@ namespace Extreal.Integration.Chat.Vivox
         private bool IsLoggingIn => LoginSession?.State == LoginState.LoggingIn;
         private bool IsLoggedIn => LoginSession?.State == LoginState.LoggedIn;
 
-        private IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
+        private VivoxUnity.IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
             => LoginSession?.ChannelSessions;
 
         private readonly VivoxAppConfig appConfig;
         private readonly CompositeDisposable disposables = new CompositeDisposable();
+
+        private readonly IRetryStrategy loginRetryStrategy;
+        private RetryHandler<Unit> loginRetryHandler;
+        private readonly CompositeDisposable loginRetryDisposables = new CompositeDisposable();
+
+        private RetryHandler<ChannelId> connectRetryHandler;
 
         private static readonly ELogger Logger = LoggingManager.GetLogger(nameof(VivoxClient));
 
@@ -139,34 +162,47 @@ namespace Extreal.Integration.Chat.Vivox
 
             disposables.Dispose();
 
-            if (LoginSession != null)
-            {
-                foreach (var channelSession in LoginSession.ChannelSessions)
-                {
-                    RemoveChannelSessionEventHandler(channelSession);
-                    RemoveParticipantEventHandler(channelSession);
-                }
-
-                RemoveLoginSessionEventHandler();
-                LoginSession = null;
-            }
+            ClearLoginSession();
 
             Client.Cleanup();
             Client.Uninitialize();
+
+            DisposeLoginRetryHandler(false);
         }
 
-        private Func<UniTask> loginAsync;
+        private void ClearLoginSession()
+        {
+            if (LoginSession == null)
+            {
+                return;
+            }
+
+            if (Logger.IsDebug())
+            {
+                Logger.LogDebug("Clear LoginSession");
+            }
+
+            foreach (var channelSession in LoginSession.ChannelSessions)
+            {
+                RemoveChannelSessionEventHandler(channelSession);
+                RemoveParticipantEventHandler(channelSession);
+            }
+
+            RemoveLoginSessionEventHandler();
+            LoginSession = null;
+        }
 
         /// <summary>
         /// Logs into the server.
         /// </summary>
         /// <param name="authConfig">Authentication config for login.</param>
+        /// <param name="retryCancellationToken">Token used to cancel retry.</param>
         /// <exception cref="VivoxConnectionException">If the login failed.</exception>
         /// <returns>UniTask of this method.</returns>
         [SuppressMessage("Style", "CC0020")]
-        public async UniTask LoginAsync(VivoxAuthConfig authConfig)
+        public UniTask LoginAsync(VivoxAuthConfig authConfig, CancellationToken retryCancellationToken = default)
         {
-            loginAsync = async () =>
+            Func<UniTask> loginAsync = async () =>
             {
                 if (IsLoggingIn || IsLoggedIn)
                 {
@@ -202,9 +238,6 @@ namespace Extreal.Integration.Chat.Vivox
                         {
                             Logger.LogDebug("An errors has occurred at 'BeginLogin'", e);
                         }
-
-                        RemoveLoginSessionEventHandler();
-                        LoginSession = null;
                         exception = e;
                     }
                 });
@@ -213,12 +246,80 @@ namespace Extreal.Integration.Chat.Vivox
 
                 if (exception != null)
                 {
+                    // A client who has never logged in is not logged out when BeginLogin fails.
+                    // Once a client has logged in, the client is logged out even if BeginLogin fails.
+                    if (LoginSession != null)
+                    {
+                        ClearLoginSession();
+                        ReinitializeClient();
+                    }
                     throw new VivoxConnectionException("The login failed", exception);
                 }
 
                 await UniTask.WaitUntil(() => IsLoggedIn);
             };
-            await loginAsync.Invoke();
+
+            DisposeLoginRetryHandler(clearOnly: true);
+            loginRetryHandler = RetryHandler<Unit>.Of(
+                loginAsync, e => e is VivoxConnectionException, appConfig.LoginRetryStrategy, retryCancellationToken);
+            loginRetryHandler.OnRetrying.Subscribe(onConnectRetrying.OnNext).AddTo(loginRetryDisposables);
+            loginRetryHandler.OnRetried.Subscribe(onConnectRetried.OnNext).AddTo(loginRetryDisposables);
+
+            return LoginAsync();
+        }
+
+        private bool isLoginBlocking;
+
+        private async UniTask LoginAsync()
+        {
+            if (isLoginBlocking)
+            {
+                // If this client already logging into the server, wait for the client to logged in.
+                if (Logger.IsDebug())
+                {
+                    Logger.LogDebug("wait for the client to logged in");
+                }
+                await UniTask.WaitUntil(() => IsLoggedIn || !isLoginBlocking);
+                if (!IsLoggedIn)
+                {
+                    throw new VivoxConnectionException("After waiting, The login failed");
+                }
+            }
+            else
+            {
+                try
+                {
+                    isLoginBlocking = true;
+                    await loginRetryHandler.HandleAsync();
+                }
+                finally
+                {
+                    isLoginBlocking = false;
+                }
+            }
+        }
+
+        private void ReinitializeClient()
+        {
+            if (Logger.IsDebug())
+            {
+                Logger.LogDebug("Reinitialize Client");
+            }
+            Client.Uninitialize();
+            Client.Initialize(appConfig.VivoxConfig);
+        }
+
+        private void DisposeLoginRetryHandler(bool clearOnly)
+        {
+            loginRetryHandler?.Dispose();
+            if (clearOnly)
+            {
+                loginRetryDisposables.Clear();
+            }
+            else
+            {
+                loginRetryDisposables.Dispose();
+            }
         }
 
         /// <summary>
@@ -238,27 +339,26 @@ namespace Extreal.Integration.Chat.Vivox
             LoginSession.Logout();
         }
 
+        private readonly Dictionary<ChannelId, Func<UniTask>> connectAsyncs = new Dictionary<ChannelId, Func<UniTask>>();
+
         /// <summary>
         /// Connects to the channel.
         /// </summary>
         /// <param name="channelConfig">Channel config for connection.</param>
+        /// <param name="connectCancellationToken">Token used to cancel the connection.</param>
         /// <exception cref="VivoxConnectionException">If the connection failed.</exception>
         /// <returns>ID of the connected channel. null if not logged in.</returns>
         [SuppressMessage("Style", "CC0020")]
-        public async UniTask<ChannelId> ConnectAsync(VivoxChannelConfig channelConfig)
+        public async UniTask<ChannelId> ConnectAsync(
+            VivoxChannelConfig channelConfig, CancellationToken connectCancellationToken = default)
         {
-            if (!IsLoggedIn)
+            if (!IsLoggedIn && loginRetryHandler == null)
             {
-                if (loginAsync == null)
+                if (Logger.IsDebug())
                 {
-                    if (Logger.IsDebug())
-                    {
-                        Logger.LogDebug("Unable to connect before login");
-                    }
-                    return null;
+                    Logger.LogDebug("Unable to connect before login");
                 }
-
-                await loginAsync.Invoke();
+                return null;
             }
 
             var channelId = new ChannelId
@@ -270,46 +370,66 @@ namespace Extreal.Integration.Chat.Vivox
                 channelConfig.Properties
             );
 
-            var channelSession = LoginSession.GetChannelSession(channelId);
-            if (channelSession.ChannelState != ConnectionState.Disconnected)
+            Func<UniTask> connectAsync = async () =>
             {
+                if (connectCancellationToken.IsCancellationRequested)
+                {
+                    if (Logger.IsDebug())
+                    {
+                        Logger.LogDebug($"Cancel connection because it was canceled. channel: {channelId.Name}");
+                    }
+                    return;
+                }
+
+                var channelSession = LoginSession.GetChannelSession(channelId);
+                if (channelSession.ChannelState != ConnectionState.Disconnected)
+                {
+                    if (Logger.IsDebug())
+                    {
+                        Logger.LogDebug($"This client already connected to the channel '{channelConfig.ChannelName}'");
+                    }
+                    return;
+                }
+
+                AddChannelSessionEventHandler(channelSession);
+
+                var connectionToken = channelSession.GetConnectToken(appConfig.SecretKey, channelConfig.TokenExpirationDuration);
+                var result = channelSession.BeginConnect
+                (
+                    channelConfig.ChatType != ChatType.TextOnly,
+                    channelConfig.ChatType != ChatType.AudioOnly,
+                    channelConfig.TransmissionSwitch,
+                    connectionToken,
+                    channelSession.EndConnect
+                );
+
+                await UniTask.WaitUntil(() => result.IsCompleted);
+
+                await UniTask.WaitUntil(() =>
+                    channelSession.ChannelState is ConnectionState.Connected or ConnectionState.Disconnected);
+                if (channelSession.ChannelState == ConnectionState.Disconnected)
+                {
+                    throw new VivoxConnectionException("The connection failed");
+                }
+
+                AddParticipantEventHandler(channelSession);
+
                 if (Logger.IsDebug())
                 {
-                    Logger.LogDebug($"This client already connected to the channel '{channelConfig.ChannelName}'");
+                    Logger.LogDebug($"This client connected to the channel '{channelConfig.ChannelName}'");
                 }
-                return channelId;
-            }
 
-            AddChannelSessionEventHandler(channelSession);
+                var myself = channelSession.Participants.First(participant => participant.IsSelf);
+                onUserConnected.OnNext(myself);
+            };
 
-            var connectionToken = channelSession.GetConnectToken(appConfig.SecretKey, channelConfig.TokenExpirationDuration);
-            var result = channelSession.BeginConnect
-            (
-                channelConfig.ChatType != ChatType.TextOnly,
-                channelConfig.ChatType != ChatType.AudioOnly,
-                channelConfig.TransmissionSwitch,
-                connectionToken,
-                channelSession.EndConnect
-            );
+            connectAsyncs.TryAdd(channelId, connectAsync);
 
-            await UniTask.WaitUntil(() => result.IsCompleted);
-
-            await UniTask.WaitUntil(() => channelSession.ChannelState is ConnectionState.Connected or ConnectionState.Disconnected);
-            if (channelSession.ChannelState == ConnectionState.Disconnected)
+            if (!IsLoggedIn)
             {
-                throw new VivoxConnectionException("The connection failed");
+                await LoginAsync();
             }
-
-            AddParticipantEventHandler(channelSession);
-
-            if (Logger.IsDebug())
-            {
-                Logger.LogDebug($"This client connected to the channel '{channelConfig.ChannelName}'");
-            }
-
-            var myself = channelSession.Participants.First(participant => participant.IsSelf);
-            onUserConnected.OnNext(myself);
-
+            await connectAsync();
             return channelId;
         }
 
@@ -334,6 +454,7 @@ namespace Extreal.Integration.Chat.Vivox
             }
 
             LoginSession.DeleteChannelSession(channelId);
+            connectAsyncs.Remove(channelId);
         }
 
         /// <summary>
@@ -355,6 +476,7 @@ namespace Extreal.Integration.Chat.Vivox
             {
                 LoginSession.DeleteChannelSession(activeChannelId);
             }
+            connectAsyncs.Clear();
         }
 
         /// <summary>
@@ -583,7 +705,7 @@ namespace Extreal.Integration.Chat.Vivox
                 Logger.LogDebug($"ChannelSession with the channel name '{channelName}' was removed");
             }
 
-            var channelSession = (sender as IReadOnlyDictionary<ChannelId, IChannelSession>)[channelId];
+            var channelSession = (sender as VivoxUnity.IReadOnlyDictionary<ChannelId, IChannelSession>)[channelId];
             RemoveChannelSessionEventHandler(channelSession);
             RemoveParticipantEventHandler(channelSession);
 
@@ -594,18 +716,83 @@ namespace Extreal.Integration.Chat.Vivox
         {
             if (propertyChangedEventArgs.PropertyName == "RecoveryState")
             {
-                if (Logger.IsDebug())
-                {
-                    Logger.LogDebug($"RecoveryState was changed to {LoginSession.RecoveryState}");
-                }
-
-                onRecoveryStateChanged.OnNext(LoginSession.RecoveryState);
+                HandleRecoveryStatePropertyChanged();
             }
-            if (propertyChangedEventArgs.PropertyName != "State")
+            else if (propertyChangedEventArgs.PropertyName == "State")
+            {
+                HandleStatePropertyChanged();
+            }
+        }
+
+        private void HandleRecoveryStatePropertyChanged()
+        {
+            if (Logger.IsDebug())
+            {
+                Logger.LogDebug($"RecoveryState was changed to {LoginSession.RecoveryState}");
+            }
+
+            onRecoveryStateChanged.OnNext(LoginSession.RecoveryState);
+
+            // Once a client has logged in, the recovery processing is executed.
+            // Clients that are currently logged in are also targeted for reconnection processing.
+            if (LoginSession.RecoveryState == ConnectionRecoveryState.FailedToRecover)
+            {
+                ReconnectAsync().Forget();
+            }
+        }
+
+        private async UniTask ReconnectAsync()
+        {
+            if (appConfig.LoginRetryStrategy is NoRetryStrategy)
             {
                 return;
             }
 
+            await UniTask.WaitUntil(() => LoginSession == null);
+
+            if (Logger.IsDebug())
+            {
+                Logger.LogDebug("Reconnection start");
+            }
+
+            try
+            {
+                await LoginAsync();
+            }
+            catch (Exception e)
+            {
+                if (Logger.IsDebug())
+                {
+                    Logger.LogDebug("Reconnection login failed", e);
+                }
+                return;
+            }
+
+            var hasError = false;
+            foreach (var connectAsync in connectAsyncs)
+            {
+                try
+                {
+                    await connectAsync.Value();
+                }
+                catch (Exception e)
+                {
+                    if (Logger.IsDebug())
+                    {
+                        Logger.LogDebug($"Reconnection connect failed. channel: {connectAsync.Key.Name}", e);
+                    }
+                    hasError = true;
+                }
+            }
+
+            if (Logger.IsDebug())
+            {
+                Logger.LogDebug(hasError ?  "Reconnection connect failed" : "Reconnection success");
+            }
+        }
+
+        private void HandleStatePropertyChanged()
+        {
             if (LoginSession.State == LoginState.LoggingIn)
             {
                 if (Logger.IsDebug())
@@ -636,8 +823,7 @@ namespace Extreal.Integration.Chat.Vivox
                     Logger.LogDebug("This client logged out");
                 }
 
-                RemoveLoginSessionEventHandler();
-                LoginSession = null;
+                ClearLoginSession();
 
                 onLoggedOut.OnNext(Unit.Default);
             }
@@ -645,7 +831,7 @@ namespace Extreal.Integration.Chat.Vivox
 
         private void OnParticipantAdded(object sender, KeyEventArg<string> keyEventArg)
         {
-            var source = sender as IReadOnlyDictionary<string, IParticipant>;
+            var source = sender as VivoxUnity.IReadOnlyDictionary<string, IParticipant>;
             var participant = source[keyEventArg.Key];
             var channelName = participant.ParentChannelSession.Channel.Name;
 
@@ -659,7 +845,7 @@ namespace Extreal.Integration.Chat.Vivox
 
         private void OnParticipantRemoved(object sender, KeyEventArg<string> keyEventArg)
         {
-            var source = sender as IReadOnlyDictionary<string, IParticipant>;
+            var source = sender as VivoxUnity.IReadOnlyDictionary<string, IParticipant>;
             var participant = source[keyEventArg.Key];
             var channelName = participant.ParentChannelSession.Channel.Name;
 
