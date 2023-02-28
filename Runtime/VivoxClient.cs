@@ -169,7 +169,7 @@ namespace Extreal.Integration.Chat.Vivox
             Client.Cleanup();
             Client.Uninitialize();
 
-            DisposeLoginRetryHandler(false);
+            DisposeLoginRetryHandler();
         }
 
         private void ClearLoginSession()
@@ -309,7 +309,7 @@ namespace Extreal.Integration.Chat.Vivox
             Client.Initialize(appConfig.VivoxConfig);
         }
 
-        private void DisposeLoginRetryHandler(bool clearOnly)
+        private void DisposeLoginRetryHandler(bool clearOnly = false)
         {
             loginRetryHandler?.Dispose();
             if (clearOnly)
