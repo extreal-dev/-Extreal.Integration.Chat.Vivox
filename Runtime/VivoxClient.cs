@@ -124,8 +124,10 @@ namespace Extreal.Integration.Chat.Vivox
         private readonly IRetryStrategy loginRetryStrategy;
         private RetryHandler<Unit> loginRetryHandler;
         private readonly CompositeDisposable loginRetryDisposables = new CompositeDisposable();
+        private bool isLoginBlocking;
 
         private RetryHandler<ChannelId> connectRetryHandler;
+        private readonly Dictionary<ChannelId, Func<UniTask>> connectAsyncs = new Dictionary<ChannelId, Func<UniTask>>();
 
         private static readonly ELogger Logger = LoggingManager.GetLogger(nameof(VivoxClient));
 
@@ -268,8 +270,6 @@ namespace Extreal.Integration.Chat.Vivox
             return LoginAsync();
         }
 
-        private bool isLoginBlocking;
-
         private async UniTask LoginAsync()
         {
             if (isLoginBlocking)
@@ -338,8 +338,6 @@ namespace Extreal.Integration.Chat.Vivox
 
             LoginSession.Logout();
         }
-
-        private readonly Dictionary<ChannelId, Func<UniTask>> connectAsyncs = new Dictionary<ChannelId, Func<UniTask>>();
 
         /// <summary>
         /// Connects to the channel.
