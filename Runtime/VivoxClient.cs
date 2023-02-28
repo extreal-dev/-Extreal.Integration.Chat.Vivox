@@ -792,7 +792,7 @@ namespace Extreal.Integration.Chat.Vivox
 
             if (Logger.IsDebug())
             {
-                Logger.LogDebug(hasError ?  "Reconnection connect failed" : "Reconnection success");
+                Logger.LogDebug(hasError ? "Reconnection connect failed" : "Reconnection success");
             }
         }
 
