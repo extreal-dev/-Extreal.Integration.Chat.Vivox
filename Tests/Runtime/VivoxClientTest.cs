@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
 using Cysharp.Threading.Tasks;
+using Extreal.Core.Common.Retry;
 using Extreal.Core.Logging;
 using NUnit.Framework;
 using UniRx;
@@ -9,7 +14,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using VivoxUnity;
-
+using Object = UnityEngine.Object;
 
 namespace Extreal.Integration.Chat.Vivox.Test
 {
@@ -37,7 +42,11 @@ namespace Extreal.Integration.Chat.Vivox.Test
         private bool onAudioEnergyChanged;
         private (IParticipant participant, double audioEnergy) changedAudioEnergy;
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeCracker", "CC0033")]
+        private int onConnectRetrying;
+        private bool onConnectRetried;
+        private bool isInvokeOnConnectRetried;
+
+        [SuppressMessage("CodeCracker", "CC0033")]
         private readonly CompositeDisposable disposables = new CompositeDisposable();
 
         [OneTimeSetUp]
@@ -51,10 +60,17 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             await SceneManager.LoadSceneAsync("Main");
 
-            var chatConfigProvider = UnityEngine.Object.FindObjectOfType<ChatConfigProvider>();
-            var chatConfig = chatConfigProvider.ChatConfig;
+            InitializeClient();
+        });
 
-            client = new VivoxClient(chatConfig.ToVivoxAppConfig());
+        private void InitializeClient(VivoxConfig vivoxConfig = null, IRetryStrategy loginRetryStrategy = null)
+        {
+            DisposeClient();
+
+            var chatConfigProvider = Object.FindObjectOfType<ChatConfigProvider>();
+            var appConfig = chatConfigProvider.ChatConfig.ToVivoxAppConfig(vivoxConfig, loginRetryStrategy);
+
+            client = new VivoxClient(appConfig);
 
             onLoggedIn = default;
             onLoggedOut = default;
@@ -75,6 +91,10 @@ namespace Extreal.Integration.Chat.Vivox.Test
             receivedMessage = default;
             onAudioEnergyChanged = default;
             changedAudioEnergy = default;
+
+            onConnectRetrying = 0;
+            onConnectRetried = false;
+            isInvokeOnConnectRetried = false;
 
             _ = client.OnLoggedIn
                 .Subscribe(_ => onLoggedIn = true)
@@ -139,19 +159,36 @@ namespace Extreal.Integration.Chat.Vivox.Test
                     this.changedAudioEnergy = changedAudioEnergy;
                 })
                 .AddTo(disposables);
-        });
+
+            _ = client.OnConnectRetrying
+                .Subscribe(retryCount => onConnectRetrying = retryCount)
+                .AddTo(disposables);
+
+            _ = client.OnConnectRetried
+                .Subscribe(retryResult =>
+                {
+                    isInvokeOnConnectRetried = true;
+                    onConnectRetried = retryResult;
+                })
+                .AddTo(disposables);
+        }
+
+        private void DisposeClient()
+        {
+            client?.Dispose();
+            disposables.Clear();
+        }
 
         [UnityTearDown]
         public IEnumerator DisposeAsync() => UniTask.ToCoroutine(async () =>
         {
-            if (onLoggedIn)
+            if (client.LoginSession?.State == LoginState.LoggedIn)
             {
                 client.Logout();
                 await UniTask.WaitUntil(() => onLoggedOut);
             }
 
-            client.Dispose();
-            disposables.Clear();
+            DisposeClient();
         });
 
         [OneTimeTearDown]
@@ -167,6 +204,39 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [UnityTest]
         public IEnumerator LoginSuccess() => UniTask.ToCoroutine(async () =>
         {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+            Assert.IsTrue(onRecoveryStateChanged);
+            Assert.AreEqual(ConnectionRecoveryState.Connected, changedRecoveryState);
+        });
+
+        [UnityTest]
+        public IEnumerator LoginSuccessForRetry() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy());
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+            Assert.IsTrue(onRecoveryStateChanged);
+            Assert.AreEqual(ConnectionRecoveryState.Connected, changedRecoveryState);
+            Assert.AreEqual(0, onConnectRetrying);
+            Assert.IsFalse(isInvokeOnConnectRetried);
+        });
+
+        [UnityTest]
+        public IEnumerator LoginSuccessWithVivoxConfigLogLevelDebug() => UniTask.ToCoroutine(async () =>
+        {
+            LogAssert.Expect(LogType.Log, new Regex(".*VivoxApi.*"));
+
+            var vivoxConfig = new VivoxConfig
+            {
+                InitialLogLevel = vx_log_level.log_debug
+            };
+            InitializeClient(vivoxConfig);
+
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
             await client.LoginAsync(authConfig);
@@ -192,26 +262,43 @@ namespace Extreal.Integration.Chat.Vivox.Test
             onLoggedOut = true;
         });
 
+        private static async UniTask DisableInternetConnectionAsync()
+        {
+            Debug.Log("<color=red>Disable the Internet connection</color>");
+            await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
+        }
+
+        private const int Wait = 5;
+        private static async UniTask EnableInternetConnectionAsync(bool strong = false)
+        {
+            if (strong)
+            {
+                await UniTask.WaitUntil(() =>
+                {
+                    Debug.Log("<color=lime>Enable the Internet connection</color>");
+                    return Application.internetReachability != NetworkReachability.NotReachable;
+                });
+            }
+            else
+            {
+                Debug.Log("<color=lime>Enable the Internet connection</color>");
+                await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
+                await UniTask.Delay(TimeSpan.FromSeconds(Wait));
+            }
+        }
+
         [UnityTest]
         public IEnumerator LoginWithoutInternetConnection() => UniTask.ToCoroutine(async () =>
         {
-            Debug.Log("<color=lime>Disable the Internet connection</color>");
-            await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            await DisableInternetConnectionAsync();
 
             const string displayName = "TestUser";
             var authConfig = new VivoxAuthConfig(displayName);
 
-            static void ErrorHandling(string logText, string traceBack, LogType logType)
-            {
-                if (logType == LogType.Error)
-                {
-                    LogAssert.Expect(LogType.Error, logText);
-                }
-            }
-
             Exception exception = null;
-
-            Application.logMessageReceived += ErrorHandling;
             try
             {
                 await client.LoginAsync(authConfig);
@@ -220,15 +307,222 @@ namespace Extreal.Integration.Chat.Vivox.Test
             {
                 exception = e;
             }
-            Application.logMessageReceived -= ErrorHandling;
 
             Assert.IsNotNull(exception);
-            Assert.AreEqual(typeof(TimeoutException), exception.GetType());
-            Assert.AreEqual("The login timed-out", exception.Message);
+            Assert.AreEqual(typeof(VivoxConnectionException), exception.GetType());
+            Assert.AreEqual("The login failed", exception.Message);
 
-            Debug.Log("<color=lime>Enable the Internet connection</color>");
-            await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
-            await UniTask.Delay(TimeSpan.FromSeconds(10));
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator LoginWithoutInternetConnectionForRetryFailure() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            await DisableInternetConnectionAsync();
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+
+            Exception exception = null;
+            try
+            {
+                await client.LoginAsync(authConfig);
+            }
+            catch (Exception e)
+            {
+                exception = e;
+            }
+
+            Assert.IsNotNull(exception);
+            Assert.AreEqual(typeof(VivoxConnectionException), exception.GetType());
+            Assert.AreEqual("The login failed", exception.Message);
+            Assert.AreEqual(5, onConnectRetrying);
+            Assert.IsTrue(isInvokeOnConnectRetried);
+            Assert.IsFalse(onConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator DisconnectedWhileLoggedInForRetryFailure() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+
+            // Login once
+            await client.LoginAsync(authConfig);
+
+            await DisableInternetConnectionAsync();
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            Assert.AreEqual(5, onConnectRetrying);
+            Assert.IsTrue(isInvokeOnConnectRetried);
+            Assert.IsFalse(onConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator DisconnectedWhileLoggedInForRetryCancel() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+
+            using var cts = new CancellationTokenSource();
+            using var disposable = client.OnConnectRetrying.Subscribe(i =>
+            {
+                if (i == 3)
+                {
+                    cts.Cancel();
+                }
+            });
+
+            // Login once
+            await client.LoginAsync(authConfig, cts.Token);
+
+            await DisableInternetConnectionAsync();
+
+            await UniTask.WaitUntil(() => onConnectRetrying == 3);
+            Assert.IsFalse(isInvokeOnConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator DisconnectedWhileLoggedInForAutoRecoverySuccess() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+
+            // Login once
+            await client.LoginAsync(authConfig);
+
+            await DisableInternetConnectionAsync();
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.Recovering);
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.Recovered);
+
+            Assert.IsFalse(isInvokeOnConnectRetried);
+            Assert.IsNotNull(client.LoginSession);
+            Assert.IsTrue(client.LoginSession.State == LoginState.LoggedIn);
+        });
+
+        [UnityTest]
+        public IEnumerator LoginWithoutInternetConnectionForRetryFailureAfterLoginAndLogoutOnce() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+
+            // Login and logout once
+            await client.LoginAsync(authConfig);
+            client.Logout();
+            await UniTask.WaitUntil(() => onLoggedOut);
+
+            await DisableInternetConnectionAsync();
+
+            Exception exception = null;
+            try
+            {
+                await client.LoginAsync(authConfig);
+            }
+            catch (Exception e)
+            {
+                exception = e;
+            }
+
+            Assert.IsNotNull(exception);
+            Assert.AreEqual(typeof(VivoxConnectionException), exception.GetType());
+            Assert.AreEqual("The login failed", exception.Message);
+            Assert.AreEqual(5, onConnectRetrying);
+            Assert.IsTrue(isInvokeOnConnectRetried);
+            Assert.IsFalse(onConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator LoginWithoutInternetConnectionForRetryCancel() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            await DisableInternetConnectionAsync();
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+
+            using var cts = new CancellationTokenSource();
+            using var disposable = client.OnConnectRetrying.Subscribe(i =>
+            {
+                if (i == 3)
+                {
+                    cts.Cancel();
+                }
+            });
+
+            Exception exception = null;
+            try
+            {
+                await client.LoginAsync(authConfig, cts.Token);
+            }
+            catch (Exception e)
+            {
+                exception = e;
+            }
+
+            Assert.IsNotNull(exception);
+            Assert.AreEqual(typeof(OperationCanceledException), exception.GetType());
+            Assert.AreEqual("The retry was canceled", exception.Message);
+            Assert.AreEqual(3, onConnectRetrying);
+            Assert.IsFalse(isInvokeOnConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator LoginWithoutInternetConnectionForRetrySuccess() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(12));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            await DisableInternetConnectionAsync();
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            client.LoginAsync(authConfig).Forget();
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            Assert.IsTrue(onConnectRetried);
         });
 
         [UnityTest]
@@ -281,6 +575,74 @@ namespace Extreal.Integration.Chat.Vivox.Test
         });
 
         [UnityTest]
+        public IEnumerator ConnectSuccessForRetry() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy());
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onChannelSessionAdded);
+            Assert.IsTrue(onUserConnected);
+            Assert.AreEqual(displayName, connectedUser.Account.DisplayName);
+            Assert.AreEqual(authConfig.AccountName, connectedUser.Account.Name);
+            Assert.AreEqual(channelName, addedChannelId.Name);
+            Assert.AreEqual(0, onConnectRetrying);
+            Assert.IsFalse(isInvokeOnConnectRetried);
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectSuccessWithMultipleChannelsForRetry() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy());
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3)).Timeout(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(3, client.LoginSession.ChannelSessions.Count);
+            foreach (var channelSession in client.LoginSession.ChannelSessions)
+            {
+                Assert.IsTrue(channelNames.Remove(channelSession.Channel.Name));
+            }
+            Assert.AreEqual(0, onConnectRetrying);
+            Assert.IsFalse(isInvokeOnConnectRetried);
+        });
+
+        private bool IsAllChannelsConnected(int count)
+        {
+            if (client.LoginSession == null)
+            {
+                return false;
+            }
+            if (client.LoginSession.ChannelSessions.Count < count)
+            {
+                return false;
+            }
+            foreach (var channelSession in client.LoginSession.ChannelSessions)
+            {
+                if (channelSession.ChannelState != ConnectionState.Connected)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        [UnityTest]
         public IEnumerator ConnectWithoutInternetConnection() => UniTask.ToCoroutine(async () =>
         {
             const string displayName = "TestUser";
@@ -288,14 +650,10 @@ namespace Extreal.Integration.Chat.Vivox.Test
             await client.LoginAsync(authConfig);
             Assert.IsTrue(onLoggedIn);
 
-            Debug.Log("<color=lime>Disable the Internet connection</color>");
-            await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
-            Debug.Log("<color=lime>Enable the Internet connection</color>");
-            await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
-            Debug.Log("<color=lime>Disable the Internet connection</color>");
+            await DisableInternetConnectionAsync();
 
             const string channelName = "TestChannel";
-            var channelConfig = new VivoxChannelConfig(channelName, timeout: TimeSpan.FromSeconds(35));
+            var channelConfig = new VivoxChannelConfig(channelName);
 
             Exception exception = null;
             try
@@ -308,12 +666,235 @@ namespace Extreal.Integration.Chat.Vivox.Test
             }
 
             Assert.IsNotNull(exception);
-            Assert.AreEqual(typeof(TimeoutException), exception.GetType());
-            Assert.AreEqual("The connection timed-out", exception.Message);
+            Assert.AreEqual(typeof(VivoxConnectionException), exception.GetType());
+            Assert.AreEqual("The connection failed", exception.Message);
 
-            Debug.Log("<color=lime>Enable the Internet connection</color>");
-            await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
-            await UniTask.Delay(TimeSpan.FromSeconds(10));
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutInternetConnectionForRetryFailure() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            await DisableInternetConnectionAsync();
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+
+            Exception exception = null;
+            try
+            {
+                await client.ConnectAsync(channelConfig);
+            }
+            catch (Exception e)
+            {
+                exception = e;
+            }
+
+            Assert.IsNotNull(exception);
+            Assert.AreEqual(typeof(VivoxConnectionException), exception.GetType());
+            Assert.AreEqual("The connection failed", exception.Message);
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            Assert.AreEqual(5, onConnectRetrying);
+            Assert.IsFalse(onConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutInternetConnectionForRetrySuccess() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(12));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            await DisableInternetConnectionAsync();
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+
+            Exception exception = null;
+            try
+            {
+                await client.ConnectAsync(channelConfig);
+            }
+            catch (Exception e)
+            {
+                exception = e;
+            }
+
+            Assert.IsNotNull(exception);
+            Assert.AreEqual(typeof(VivoxConnectionException), exception.GetType());
+            Assert.AreEqual("The connection failed", exception.Message);
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => onUserConnected);
+            Assert.IsTrue(onConnectRetried);
+            Assert.IsTrue(onChannelSessionAdded);
+            Assert.AreEqual(displayName, connectedUser.Account.DisplayName);
+            Assert.AreEqual(authConfig.AccountName, connectedUser.Account.Name);
+            Assert.AreEqual(channelName, addedChannelId.Name);
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutInternetConnectionWithMultipleChannelsForRetryFailure() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            await DisableInternetConnectionAsync();
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            Assert.IsNull(client.LoginSession);
+            Assert.AreEqual(5, onConnectRetrying);
+            Assert.IsFalse(onConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutInternetConnectionWithMultipleChannelsForRetryCancel() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+            LogAssert.Expect(LogType.Log, new Regex("The retry was canceled"));
+
+            using var cts = new CancellationTokenSource();
+            using var disposable = client.OnConnectRetrying.Subscribe(i =>
+            {
+                if (i == 3)
+                {
+                    cts.Cancel();
+                }
+            });
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig, cts.Token);
+            Assert.IsTrue(onLoggedIn);
+
+            await DisableInternetConnectionAsync();
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await UniTask.WaitUntil(() => onConnectRetrying == 3);
+            await UniTask.Delay(TimeSpan.FromSeconds(5));
+
+            Assert.IsNull(client.LoginSession);
+            Assert.AreEqual(3, onConnectRetrying);
+            Assert.IsFalse(isInvokeOnConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutInternetConnectionWithMultipleChannelsForConnectCancel() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(12));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+            LogAssert.Expect(LogType.Log, new Regex("Cancel connection because it was canceled. channel: TestChannel1"));
+            LogAssert.Expect(LogType.Log, new Regex("Cancel connection because it was canceled. channel: TestChannel3"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            await DisableInternetConnectionAsync();
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+
+            using var cts = new CancellationTokenSource();
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0]), cts.Token).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2]), cts.Token).Forget();
+
+            cts.Cancel();
+            channelNames.Remove("TestChannel1");
+            channelNames.Remove("TestChannel3");
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(1)).Timeout(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(1, client.LoginSession.ChannelSessions.Count);
+            foreach (var channelSession in client.LoginSession.ChannelSessions)
+            {
+                Assert.IsTrue(channelNames.Remove(channelSession.Channel.Name));
+            }
+            Assert.IsTrue(onConnectRetried);
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutInternetConnectionWithMultipleChannelsForRetrySuccess() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(12));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            await DisableInternetConnectionAsync();
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3)).Timeout(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(3, client.LoginSession.ChannelSessions.Count);
+            foreach (var channelSession in client.LoginSession.ChannelSessions)
+            {
+                Assert.IsTrue(channelNames.Remove(channelSession.Channel.Name));
+            }
+            Assert.IsTrue(onConnectRetried);
         });
 
         [UnityTest]
@@ -321,8 +902,126 @@ namespace Extreal.Integration.Chat.Vivox.Test
         {
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            await client.ConnectAsync(channelConfig);
+            var channelId = await client.ConnectAsync(channelConfig);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] Unable to connect before login");
+            Assert.IsNull(channelId);
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutLoginIfLoggedInBefore() => UniTask.ToCoroutine(async () =>
+        {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            client.Logout();
+            await UniTask.WaitUntil(() => onLoggedOut);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onChannelSessionAdded);
+            Assert.IsTrue(onUserConnected);
+            Assert.AreEqual(displayName, connectedUser.Account.DisplayName);
+            Assert.AreEqual(authConfig.AccountName, connectedUser.Account.Name);
+            Assert.AreEqual(channelName, addedChannelId.Name);
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutLoginWithMultipleChannelsIfLoggedInBeforeForRetry() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            client.Logout();
+            await UniTask.WaitUntil(() => onLoggedOut);
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3));
+
+            Assert.AreEqual(3, client.LoginSession.ChannelSessions.Count);
+            foreach (var channelSession in client.LoginSession.ChannelSessions)
+            {
+                Assert.IsTrue(channelNames.Remove(channelSession.Channel.Name));
+            }
+            Assert.AreEqual(0, onConnectRetrying);
+            Assert.IsFalse(isInvokeOnConnectRetried);
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutLoginAndInternetConnectionWithMultipleChannelsIfLoggedInBeforeForRetryFailure() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            client.Logout();
+            await UniTask.WaitUntil(() => onLoggedOut);
+
+            await DisableInternetConnectionAsync();
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            Assert.IsNull(client.LoginSession);
+            Assert.AreEqual(5, onConnectRetrying);
+            Assert.IsFalse(onConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator ConnectWithoutLoginAndInternetConnectionWithMultipleChannelsIfLoggedInBeforeForRetrySuccess() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(12));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            client.Logout();
+            await UniTask.WaitUntil(() => onLoggedOut);
+
+            await DisableInternetConnectionAsync();
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3)).Timeout(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(3, client.LoginSession.ChannelSessions.Count);
+            foreach (var channelSession in client.LoginSession.ChannelSessions)
+            {
+                Assert.IsTrue(channelNames.Remove(channelSession.Channel.Name));
+            }
+            Assert.IsTrue(onConnectRetried);
         });
 
         [UnityTest]
@@ -335,11 +1034,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            await client.ConnectAsync(channelConfig);
+            var channelId1st = await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onUserConnected);
+            Assert.IsNotNull(channelId1st);
 
-            await client.ConnectAsync(channelConfig);
+            var channelId2nd = await client.ConnectAsync(channelConfig);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client already connected to the channel '{channelName}'");
+            Assert.IsTrue(channelId1st.Equals(channelId2nd));
         });
 
         [UnityTest]
@@ -352,18 +1053,37 @@ namespace Extreal.Integration.Chat.Vivox.Test
 
             const string channelName = "TestChannel";
             var channelConfig = new VivoxChannelConfig(channelName);
-            await client.ConnectAsync(channelConfig);
+            var channelId = await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onUserConnected);
 
-            client.Disconnect(addedChannelId);
+            client.Disconnect(channelId);
             await UniTask.WaitUntil(() => onChannelSessionRemoved);
             await UniTask.WaitUntil(() => onUserDisconnected);
+            Assert.AreEqual(addedChannelId, channelId);
             Assert.AreEqual(channelName, removedChannelId.Name);
             Assert.IsTrue(onUserDisconnected);
             Assert.IsTrue(disconnectedUser.IsSelf);
+        });
+
+        [UnityTest]
+        public IEnumerator DisconnectWithoutLogin() => UniTask.ToCoroutine(async () =>
+        {
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            var channelId = await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
 
             client.Logout();
             await UniTask.WaitUntil(() => onLoggedOut);
+
+            client.Disconnect(channelId);
+            Assert.IsFalse(onUserDisconnected);
+            LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client has already disconnected from the channel");
         });
 
         [Test]
@@ -388,15 +1108,13 @@ namespace Extreal.Integration.Chat.Vivox.Test
             client.DisconnectAllChannels();
             await UniTask.WaitUntil(() => onChannelSessionRemoved);
             Assert.AreEqual(channelName, removedChannelId.Name);
-
-            client.Logout();
-            await UniTask.WaitUntil(() => onLoggedOut);
         });
 
         [Test]
         public void DisconnectAllChannelsWithoutLogin()
         {
             client.DisconnectAllChannels();
+            Assert.IsFalse(onUserDisconnected);
             LogAssert.Expect(LogType.Log, $"[{LogLevel.Debug}:{nameof(VivoxClient)}] This client has already disconnected from all channels");
         }
 
@@ -673,16 +1391,273 @@ namespace Extreal.Integration.Chat.Vivox.Test
             await client.ConnectAsync(channelConfig);
             Assert.IsTrue(onUserConnected);
 
-            Debug.Log("<color=lime>Disable the Internet connection</color>");
-            await UniTask.WaitUntil(() => Application.internetReachability == NetworkReachability.NotReachable);
+            await DisableInternetConnectionAsync();
 
             await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.Recovering);
             await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
             await UniTask.WaitUntil(() => onLoggedOut);
 
-            Debug.Log("<color=lime>Enable the Internet connection</color>");
-            await UniTask.WaitUntil(() => Application.internetReachability != NetworkReachability.NotReachable);
-            await UniTask.Delay(TimeSpan.FromSeconds(10));
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator UnexpectedDisconnectForRetryFailure() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
+
+            await DisableInternetConnectionAsync();
+
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.Recovering);
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+            await UniTask.WaitUntil(() => onLoggedOut);
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            Assert.AreEqual(5, onConnectRetrying);
+            Assert.IsFalse(onConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator UnexpectedDisconnectWithMultipleChannelsForRetryFailure() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3));
+
+            await DisableInternetConnectionAsync();
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            Assert.IsNull(client.LoginSession);
+            Assert.AreEqual(5, onConnectRetrying);
+            Assert.IsFalse(onConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator UnexpectedDisconnectWithMultipleChannelsForRetryCancel() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+            LogAssert.Expect(LogType.Log, new Regex("The retry was canceled"));
+
+            using var cts = new CancellationTokenSource();
+            using var disposable = client.OnConnectRetrying.Subscribe(i =>
+            {
+                if (i == 3)
+                {
+                    cts.Cancel();
+                }
+            });
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig, cts.Token);
+            Assert.IsTrue(onLoggedIn);
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3));
+
+            await DisableInternetConnectionAsync();
+
+            await UniTask.WaitUntil(() => onConnectRetrying == 3);
+            await UniTask.Delay(TimeSpan.FromSeconds(5));
+
+            Assert.IsNull(client.LoginSession);
+            Assert.AreEqual(3, onConnectRetrying);
+            Assert.IsFalse(isInvokeOnConnectRetried);
+
+            await EnableInternetConnectionAsync();
+        });
+
+        [UnityTest]
+        public IEnumerator UnexpectedDisconnectWithMultipleChannelsForConnectCancel() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(5));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+            LogAssert.Expect(LogType.Log, new Regex("Cancel connection because it was canceled. channel: TestChannel1"));
+            LogAssert.Expect(LogType.Log, new Regex("Cancel connection because it was canceled. channel: TestChannel3"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            using var cts = new CancellationTokenSource();
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0]), cts.Token).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2]), cts.Token).Forget();
+
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3));
+
+            await DisableInternetConnectionAsync();
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+
+            cts.Cancel();
+            channelNames.Remove("TestChannel1");
+            channelNames.Remove("TestChannel3");
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(1)).Timeout(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(1, client.LoginSession.ChannelSessions.Count);
+            foreach (var channelSession in client.LoginSession.ChannelSessions)
+            {
+                Assert.IsTrue(channelNames.Remove(channelSession.Channel.Name));
+            }
+
+            Assert.IsTrue(onConnectRetried);
+        });
+
+        [UnityTest]
+        public IEnumerator UnexpectedDisconnectForRetrySuccess() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(12));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            const string channelName = "TestChannel";
+            var channelConfig = new VivoxChannelConfig(channelName);
+            await client.ConnectAsync(channelConfig);
+            Assert.IsTrue(onUserConnected);
+
+            await DisableInternetConnectionAsync();
+
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.Recovering);
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+            await UniTask.WaitUntil(() => onLoggedOut);
+
+            onUserConnected = false;
+            onChannelSessionAdded = false;
+            connectedUser = null;
+            addedChannelId = null;
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => onUserConnected);
+            Assert.IsTrue(onConnectRetried);
+            Assert.IsTrue(onChannelSessionAdded);
+            Assert.AreEqual(displayName, connectedUser.Account.DisplayName);
+            Assert.AreEqual(authConfig.AccountName, connectedUser.Account.Name);
+            Assert.AreEqual(channelName, addedChannelId.Name);
+        });
+
+        [UnityTest]
+        public IEnumerator UnexpectedDisconnectWithMultipleChannelsForRetrySuccess() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(12));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            var channelNames = new List<string> { "TestChannel1", "TestChannel2", "TestChannel3" };
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[0])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[1])).Forget();
+            client.ConnectAsync(new VivoxChannelConfig(channelNames[2])).Forget();
+
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3));
+
+            await DisableInternetConnectionAsync();
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => isInvokeOnConnectRetried);
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(3)).Timeout(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(3, client.LoginSession.ChannelSessions.Count);
+            foreach (var channelSession in client.LoginSession.ChannelSessions)
+            {
+                Assert.IsTrue(channelNames.Remove(channelSession.Channel.Name));
+            }
+            Assert.IsTrue(onConnectRetried);
+        });
+
+        [UnityTest]
+        public IEnumerator ReconnectionConnectFailed() => UniTask.ToCoroutine(async () =>
+        {
+            InitializeClient(loginRetryStrategy: new CountingRetryStrategy(12));
+
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Error, new Regex("Error: Name Resolution Failed \\(10006\\)"));
+            LogAssert.Expect(LogType.Log, new Regex("Reconnection connect failed"));
+
+            const string displayName = "TestUser";
+            var authConfig = new VivoxAuthConfig(displayName);
+            await client.LoginAsync(authConfig);
+            Assert.IsTrue(onLoggedIn);
+
+            const int max = 10;
+            for (var i = 0; i < max; i++)
+            {
+                client.ConnectAsync(new VivoxChannelConfig($"TestChannel{i}", ChatType.TextOnly)).Forget();
+            }
+            await UniTask.WaitUntil(() => IsAllChannelsConnected(max));
+
+            await DisableInternetConnectionAsync();
+            await UniTask.WaitUntil(() => client.LoginSession == null);
+
+            await EnableInternetConnectionAsync(strong: true);
+
+            await UniTask.WaitUntil(() => client.LoginSession?.State == LoginState.LoggedIn)
+                .Timeout(TimeSpan.FromSeconds(10));
+
+            await DisableInternetConnectionAsync();
+            await UniTask.WaitUntil(() => changedRecoveryState == ConnectionRecoveryState.FailedToRecover);
+            await UniTask.WaitUntil(() => client.LoginSession == null);
+
+            await EnableInternetConnectionAsync(strong: true);
+            await UniTask.Delay(TimeSpan.FromSeconds(Wait));
         });
     }
 }

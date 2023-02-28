@@ -45,12 +45,6 @@ namespace Extreal.Integration.Chat.Vivox
         public TimeSpan TokenExpirationDuration { get; }
 
         /// <summary>
-        /// Uses when connection is not successful.
-        /// </summary>
-        /// <value>Time to wait when connection is not successful.</value>
-        public TimeSpan Timeout { get; }
-
-        /// <summary>
         /// Creates a new VivoxChannelConfig with given channelName, chatType, channelType, transmissionSwitch and tokenExpirationDuration.
         /// </summary>
         /// <param name="channelName">Name of the channel.</param>
@@ -61,10 +55,6 @@ namespace Extreal.Integration.Chat.Vivox
         ///     <para>Expiration duration of the token.</para>
         ///     Default: 60 seconds
         /// </param>
-        /// <param name="timeout">
-        ///     <para>Time to wait when connection is not successful.</para>
-        ///     Default: 10 seconds
-        /// </param>
         /// <exception cref="ArgumentNullException">If 'channelName' is null.</exception>
         public VivoxChannelConfig
         (
@@ -72,8 +62,7 @@ namespace Extreal.Integration.Chat.Vivox
             ChatType chatType = default,
             ChannelType channelType = default,
             bool transmissionSwitch = true,
-            TimeSpan tokenExpirationDuration = default,
-            TimeSpan timeout = default
+            TimeSpan tokenExpirationDuration = default
         )
         {
             if (string.IsNullOrEmpty(channelName))
@@ -88,7 +77,6 @@ namespace Extreal.Integration.Chat.Vivox
             TransmissionSwitch = transmissionSwitch;
             TokenExpirationDuration
                 = tokenExpirationDuration == default ? TimeSpan.FromSeconds(60) : tokenExpirationDuration;
-            Timeout = timeout == default ? TimeSpan.FromSeconds(10) : timeout;
         }
     }
 }

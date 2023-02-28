@@ -1,4 +1,6 @@
 ﻿using System;
+using Extreal.Core.Common.Retry;
+using VivoxUnity;
 
 namespace Extreal.Integration.Chat.Vivox
 {
@@ -32,14 +34,30 @@ namespace Extreal.Integration.Chat.Vivox
         public string SecretKey { get; }
 
         /// <summary>
+        /// Uses to initialize a VivoxClient.
+        /// </summary>
+        /// <value>Vivox configuration.</value>
+        public VivoxConfig VivoxConfig { get; }
+
+        /// <summary>
+        /// Uses for login retry.
+        /// </summary>
+        /// <value>Retry strategy to use for logging to the server.</value>
+        public IRetryStrategy LoginRetryStrategy { get; }
+
+        /// <summary>
         /// Creates a new VivoxAppConfig with given apiEndPoint, domain, issuer and secretKey.
         /// </summary>
         /// <param name="apiEndPoint">API end point of Vivox API information.</param>
         /// <param name="domain">Domain of Vivox API information.</param>
         /// <param name="issuer">Issuer of Vivox API information.</param>
         /// <param name="secretKey">Secret key of Vivox API information.</param>
+        /// <param name="vivoxConfig">Vivox configuration.</param>
+        /// <param name="loginRetryStrategy">Retry strategy to use for logging to the server.</param>
         /// <exception cref="ArgumentNullException">If 'apiEndPoint'/'domain'/'issuer'/'secretKey' is null.</exception>
-        public VivoxAppConfig(string apiEndPoint, string domain, string issuer, string secretKey)
+        public VivoxAppConfig(
+            string apiEndPoint, string domain, string issuer, string secretKey,
+            VivoxConfig vivoxConfig = null, IRetryStrategy loginRetryStrategy = null)
         {
             if (string.IsNullOrEmpty(apiEndPoint))
             {
@@ -62,6 +80,8 @@ namespace Extreal.Integration.Chat.Vivox
             Domain = domain;
             Issuer = issuer;
             SecretKey = secretKey;
+            VivoxConfig = vivoxConfig;
+            LoginRetryStrategy = loginRetryStrategy ?? NoRetryStrategy.Instance;
         }
     }
 }

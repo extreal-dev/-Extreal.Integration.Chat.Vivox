@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using Extreal.Core.Common.Retry;
+using UnityEngine;
+using VivoxUnity;
 
 namespace Extreal.Integration.Chat.Vivox.Test
 {
@@ -12,7 +14,7 @@ namespace Extreal.Integration.Chat.Vivox.Test
         [SerializeField] private string issuer;
         [SerializeField] private string secretKey;
 
-        public VivoxAppConfig ToVivoxAppConfig()
-            => new VivoxAppConfig(apiEndPoint, domain, issuer, secretKey);
+        public VivoxAppConfig ToVivoxAppConfig(VivoxConfig vivoxConfig = null, IRetryStrategy loginRetryStrategy = null)
+            => new VivoxAppConfig(apiEndPoint, domain, issuer, secretKey, vivoxConfig, loginRetryStrategy);
     }
 }
