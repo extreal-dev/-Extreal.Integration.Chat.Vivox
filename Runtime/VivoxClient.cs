@@ -378,6 +378,7 @@ namespace Extreal.Integration.Chat.Vivox
                     {
                         Logger.LogDebug($"Cancel connection because it was canceled. channel: {channelId.Name}");
                     }
+                    connectAsyncs.Remove(channelId);
                     return;
                 }
 
@@ -771,17 +772,21 @@ namespace Extreal.Integration.Chat.Vivox
             }
 
             var hasError = false;
-            foreach (var connectAsync in connectAsyncs)
+            var channelIds = connectAsyncs.Keys.ToArray();
+            foreach (var channelId in channelIds)
             {
                 try
                 {
-                    await connectAsync.Value();
+                    if (connectAsyncs.TryGetValue(channelId, out var connectAsync))
+                    {
+                        await connectAsync();
+                    }
                 }
                 catch (Exception e)
                 {
                     if (Logger.IsDebug())
                     {
-                        Logger.LogDebug($"Reconnection connect failed. channel: {connectAsync.Key.Name}", e);
+                        Logger.LogDebug($"Reconnection connect failed. channel: {channelId.Name}", e);
                     }
                     hasError = true;
                 }
