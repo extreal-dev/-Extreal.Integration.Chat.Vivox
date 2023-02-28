@@ -444,6 +444,9 @@ namespace Extreal.Integration.Chat.Vivox
             {
                 throw new ArgumentNullException(nameof(channelId));
             }
+
+            connectAsyncs.Remove(channelId);
+
             if (!IsLoggedIn)
             {
                 if (Logger.IsDebug())
@@ -454,7 +457,6 @@ namespace Extreal.Integration.Chat.Vivox
             }
 
             LoginSession.DeleteChannelSession(channelId);
-            connectAsyncs.Remove(channelId);
         }
 
         /// <summary>
