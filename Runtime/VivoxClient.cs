@@ -157,11 +157,6 @@ namespace Extreal.Integration.Chat.Vivox
         /// <inheritdoc/>
         protected override void ReleaseManagedResources()
         {
-            if (Logger.IsDebug())
-            {
-                Logger.LogDebug($"Dispose {nameof(VivoxClient)}");
-            }
-
             disposables.Dispose();
 
             ClearLoginSession();
