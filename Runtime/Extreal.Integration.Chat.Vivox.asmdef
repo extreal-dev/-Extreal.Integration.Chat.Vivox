@@ -4,7 +4,7 @@
     "references": [
         "Extreal.Core.Logging",
         "Extreal.Core.Common",
-        "VivoxUnity",
+        "Unity.Services.Vivox",
         "UniTask",
         "UniRx"
     ],

@@ -9,7 +9,7 @@ using Extreal.Core.Common.Retry;
 using Extreal.Core.Common.System;
 using Extreal.Core.Logging;
 using UniRx;
-using VivoxUnity;
+using Unity.Services.Vivox;
 
 namespace Extreal.Integration.Chat.Vivox
 {
@@ -36,9 +36,9 @@ namespace Extreal.Integration.Chat.Vivox
         /// Arg: Changed recovery state
         /// </summary>
         public IObservable<ConnectionRecoveryState> OnRecoveryStateChanged
-            => onRecoveryStateChanged.AddTo(disposables);
+        => onRecoveryStateChanged.AddTo(disposables);
         private readonly Subject<ConnectionRecoveryState> onRecoveryStateChanged
-            = new Subject<ConnectionRecoveryState>();
+        = new Subject<ConnectionRecoveryState>();
 
         /// <summary>
         /// <para>Invokes immediately after the channel session is added.</para>
@@ -115,7 +115,7 @@ namespace Extreal.Integration.Chat.Vivox
         private bool IsLoggingIn => LoginSession?.State == LoginState.LoggingIn;
         private bool IsLoggedIn => LoginSession?.State == LoginState.LoggedIn;
 
-        private VivoxUnity.IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
+        private Unity.Services.Vivox.IReadOnlyDictionary<ChannelId, IChannelSession> ActiveChannelSessions
             => LoginSession?.ChannelSessions;
 
         private readonly VivoxAppConfig appConfig;

@@ -1,5 +1,5 @@
 ﻿using System;
-using VivoxUnity;
+using Unity.Services.Vivox;
 
 namespace Extreal.Integration.Chat.Vivox
 {

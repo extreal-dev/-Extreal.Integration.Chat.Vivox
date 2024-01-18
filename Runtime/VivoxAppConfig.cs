@@ -1,6 +1,6 @@
 ﻿using System;
 using Extreal.Core.Common.Retry;
-using VivoxUnity;
+using Unity.Services.Vivox;
 
 namespace Extreal.Integration.Chat.Vivox
 {
@@ -37,7 +37,7 @@ namespace Extreal.Integration.Chat.Vivox
         /// Uses to initialize a VivoxClient.
         /// </summary>
         /// <value>Vivox configuration.</value>
-        public VivoxConfig VivoxConfig { get; }
+        public VivoxConfigurationOptions VivoxConfig { get; }
 
         /// <summary>
         /// Uses for login retry.
@@ -57,7 +57,7 @@ namespace Extreal.Integration.Chat.Vivox
         /// <exception cref="ArgumentNullException">If 'apiEndPoint'/'domain'/'issuer'/'secretKey' is null.</exception>
         public VivoxAppConfig(
             string apiEndPoint, string domain, string issuer, string secretKey,
-            VivoxConfig vivoxConfig = null, IRetryStrategy loginRetryStrategy = null)
+            VivoxConfigurationOptions vivoxConfig = null, IRetryStrategy loginRetryStrategy = null)
         {
             if (string.IsNullOrEmpty(apiEndPoint))
             {
