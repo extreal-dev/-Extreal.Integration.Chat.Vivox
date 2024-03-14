@@ -1,6 +1,6 @@
 {
   "name": "jp.co.tis.extreal.integration.chat.vivox",
-  "version": "1.2.0",
+  "version": "1.3.0-next.1",
   "displayName": "Extreal.Integration.Chat.Vivox",
   "unity": "2022.3",
   "author": {
@@ -8,9 +8,9 @@
   },
   "dependencies": {
     "jp.co.tis.extreal.core.logging": "1.2.0",
-    "jp.co.tis.extreal.core.common": "1.1.0",
+    "jp.co.tis.extreal.core.common": "1.2.0-next.1",
     "com.unity.services.vivox": "15.1.210100-pre.1",
-    "com.cysharp.unitask": "2.3.3",
+    "com.cysharp.unitask": "2.5.0",
     "com.neuecc.unirx": "7.1.0"
   },
   "samples": [
